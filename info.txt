@@ -1,0 +1,80 @@
+cd ..
+npm init -y
+npm install -D concurrently
+npm install -g electron-builder
+
+
+Modifica package.json
+"scripts": {
+  "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+  "start:electron": "concurrently \"npm run start:backend\" \"npm run start:frontend\" \"npm run electron\"",
+  "build": "cd Frontend && npm run build && electron-builder",
+  "start:backend": "cd Backend && npm run dev",
+  "start:frontend": "cd Frontend && npm run dev",
+  "electron": "electron ."
+},
+"devDependencies": {
+  "concurrently": "^8.2.0",
+  "electron": "^25.2.0",
+  "electron-builder": "^24.5.1"
+},
+"build": {
+  "appId": "com.logistica.app",
+  "productName": "Logistica",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "Backend/**/*",
+    "Frontend/dist/**/*",
+    "main.js"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "icon.ico"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "icon.icns"
+  }
+}
+
+
+
+// main.js
+const { app, BrowserWindow } = require("electron");
+const path = require("path");
+
+let mainWindow;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  // Cargar la URL del Frontend
+  mainWindow.loadURL("http://localhost:3000"); // Cambia esto si usas otro puerto
+}
+
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+

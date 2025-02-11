@@ -1,0 +1,6 @@
+cd ../Backend
+npm init -y
+npm install express cors dotenv morgan
+npm install -D nodemon eslint
+npm install mysql2
+Y copiar el archivo package.json

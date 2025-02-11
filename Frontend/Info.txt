@@ -1,0 +1,35 @@
+cd frontend
+npm create vite@latest . -- --template react-ts
+npm install
+npm install -D tailwindcss@^3.4.1 postcss@^8.4.33 autoprefixer@^10.4.17
+
+Crear archivos:
+// postcss.config.js
+/** @type {import('postcss').Config} */
+export default {
+  plugins: {
+    'tailwindcss': {},
+    'autoprefixer': {},
+  }
+}
+
+// tailwind.config.js
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+
+Agregar en:
+// src/index.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+npm run dev
