@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 // Verificar las variables de entorno
-console.log("🔍 Configuración de la base de datos:");
+console.log("🔍 Configuración de la base MySQL:");
 console.log("DB_HOST:", process.env.DB_HOST_MySQL);
 console.log("DB_USER:", process.env.DB_USER_MySQL);
 console.log("DB_PASS:", process.env.DB_PASS_MySQL); 
@@ -19,10 +19,10 @@ const pool = mysql.createPool({
 });
 
 // Función para probar la conexión
-export const testDBConnection = async () => {
+export const testMySQLConnection = async () => {
   try {
     const connection = await pool.getConnection();
-    console.log("✅ Conexión a la base de datos exitosa");
+    console.log("✅ Conexión exitosa a MySQL");
     connection.release(); // Liberar conexión
   } catch (error) {
     console.error("❌ Error al conectar con la base de datos:", error.message);

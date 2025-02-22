@@ -19,7 +19,9 @@
     "express": "^4.21.2",
     "morgan": "^1.10.0",
     "mssql": "^11.0.1",
-    "mysql2": "^3.12.0"
+    "mysql2": "^3.12.0",
+    "oracledb": "^6.7.2",
+    "pg": "^8.13.3"
   },
   "devDependencies": {
     "eslint": "^9.19.0",

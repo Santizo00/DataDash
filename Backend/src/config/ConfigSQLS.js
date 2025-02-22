@@ -38,9 +38,8 @@ const pool = new sql.ConnectionPool(configSQLServer);
 // Función para probar la conexión con más detalles de error
 export const testSQLServerConnection = async () => {
     try {
-        console.log("Intentando conectar a SQL Server...");
         await pool.connect();
-        console.log("✅ Conexión a SQL Server exitosa");
+        console.log("✅ Conexión exitosa a SQL Server");
         return true;
     } catch (error) {
         console.error("❌ Error al conectar con SQL Server:", error.message);
