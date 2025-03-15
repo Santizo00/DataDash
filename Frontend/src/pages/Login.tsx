@@ -1,76 +1,37 @@
 import React, { useState } from "react";
-import { User, Lock, LogIn, Eye, EyeOff, CircleUserRound } from "lucide-react";
-import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
-import { auth, googleProvider, db } from "../firebaseConfig";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { User, Lock, LogIn, Eye, EyeOff, CircleUserRound } from "lucide-react";
 import BackgroundGradient from "../components/BackgroundGradient";
-import { collection, query, where, getDocs } from "firebase/firestore";
 
 const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
   const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    if (!credentials.username || !credentials.password) {
-      Swal.fire({ icon: "warning", title: "⚠️ Campos vacíos", text: "Por favor, complete todos los campos." });
-      return;
-    }
-
-    try {
-      let email = credentials.username;
-
-      if (!credentials.username.includes("@")) {
-        const q = query(collection(db, "users"), where("username", "==", credentials.username));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          Swal.fire({ icon: "error", title: "❌ Error", text: "Usuario no encontrado." });
-          return;
-        }
-
-        email = querySnapshot.docs[0].data().email;
-      }
-
-      const userCredential = await signInWithEmailAndPassword(auth, email, credentials.password);
-      Swal.fire({ icon: "success", title: "✅ Bienvenido!", text: "Inicio de sesión exitoso" }).then(() => {
-        localStorage.setItem("user", JSON.stringify(userCredential.user));
-        navigate("/");
-      });
-
-    } catch (error: any) {
-      Swal.fire({ icon: "error", title: "❌ Error", text: "Usuario o contraseña incorrectos." });
-    }
+    console.log("Intentando iniciar sesión con:", credentials);
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      Swal.fire({ icon: "success", title: "✅ Bienvenido!", text: "Inicio de sesión con Google exitoso" }).then(() => {
-        localStorage.setItem("user", JSON.stringify(result.user));
-        navigate("/");
-      });
-    } catch (error: any) {}
+  const goToRegister = () => {
+    navigate('/register');
   };
 
   return (
     <BackgroundGradient>
-      <div className="w-[450px] p-6">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 space-y-6">
+      <div className="w-full max-w-[600px] px-4 sm:px-6 py-4 sm:py-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-4 sm:p-8 space-y-4 sm:space-y-6">
           <div className="w-full flex justify-center">
-            <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center">
-              <CircleUserRound className="h-16 w-16 text-white" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-600 rounded-2xl flex items-center justify-center">
+              <CircleUserRound className="h-12 w-12 sm:h-16 sm:w-16 text-white" />
             </div>
           </div>
 
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-800">Iniciar Sesión</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Iniciar Sesión</h2>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {/* Campo de usuario/correo */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
@@ -108,11 +69,11 @@ const LoginPage: React.FC = () => {
             </div>
 
             {/* Botones de login */}
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-2 mt-2">
               {/* Botón de Ingresar */}
               <button
                 type="submit"
-                className="bg-blue-600 text-white py-3 flex-grow rounded-lg flex items-center justify-center space-x-2"
+                className="bg-blue-600 text-white py-3 w-full sm:flex-grow rounded-lg flex items-center justify-center space-x-2"
               >
                 <LogIn className="h-5 w-5" />
                 <span>Ingresar</span>
@@ -121,26 +82,24 @@ const LoginPage: React.FC = () => {
               {/* Botón de Google */}
               <button
                 type="button"
-                onClick={handleGoogleLogin}
-                className="bg-white text-white py-3 px-5 rounded-lg flex items-center justify-center border border-black"
+                className="bg-white text-white py-3 w-full sm:w-auto sm:px-5 rounded-lg flex items-center justify-center border border-black"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-5 w-5" />
               </button>
             </div>
 
             {/* Enlaces de registro y recuperación */}
-            <div className="flex justify-between text-sm text-gray-600 mt-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between text-sm text-gray-600 mt-1 space-y-2 sm:space-y-0">
               <button
                 type="button"
-                onClick={() => navigate("/register")}
-                className="hover:underline"
+                className="hover:underline focus:outline-none border-none"
+                onClick={goToRegister}
               >
                 Registrarse
               </button>
               <button
                 type="button"
-                onClick={() => Swal.fire("Funcionalidad en desarrollo", "Próximamente podrás recuperar tu contraseña", "info")}
-                className="hover:underline"
+                className="hover:underline focus:outline-none border-none"
               >
                 ¿Olvidaste tu contraseña?
               </button>

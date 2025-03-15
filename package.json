@@ -16,7 +16,6 @@
   "license": "ISC",
   "description": "Configuracion basica de Node.js, React, Tailwind y Electron",
   "dependencies": {
-    "estructura_node_react_tailwind": "file:"
   },
   "devDependencies": {
     "concurrently": "^8.2.0",

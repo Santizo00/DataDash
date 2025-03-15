@@ -1,21 +1,25 @@
-import app from "./app.js";
-import { testMySQLConnection } from "./config/ConfigMySQL.js";
-import { testSQLServerConnection } from "./config/ConfigSQLS.js";
-import { testPostgresConnection } from "./config/ConfigPostgres.js";
-import { testOracleConnection } from "./config/ConfigOracle.js";
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
 
+// Importar las rutas
+import registerRoutes from "./routes/registerRoute.js";
+
+// Configurar dotenv para variables de entorno
+dotenv.config();
+
+// Crear la aplicación Express
+const app = express();
+
+// Middleware
+app.use(express.json()); // Para parsear JSON en las peticiones
+app.use(cors()); // Habilitar CORS
+
+
+app.use("/register", registerRoutes); // Agregar la ruta de registro
+
+// Configuración del puerto y arranque del servidor
 const PORT = process.env.PORT || 5000;
-
-// Probar todas las conexiones antes de iniciar el servidor
-async function initializeServer() {
-    await testMySQLConnection();
-    await testSQLServerConnection();
-    await testPostgresConnection();
-    await testOracleConnection();
-
-    app.listen(PORT, () => {
-        console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-    });
-}
-
-initializeServer();
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+});

@@ -3,7 +3,7 @@ import BackgroundGradient from "../components/BackgroundGradient";
 const Home = () => {
   return (
     <BackgroundGradient>
-      <div>Welcome Home</div>
+      <div>Welcome Homes</div>
     </BackgroundGradient>
   );
 };
