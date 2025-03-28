@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Mail, Lock, LogIn, Eye, EyeOff, CircleUserRound, UserRound } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, CircleUserRound, UserRound , UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BackgroundGradient from "../components/BackgroundGradient";
 import { showSuccessAlert,  showErrorAlert, showCustomWarningAlert} from "../components/AlertService";
@@ -307,6 +307,8 @@ const RegisterPage: React.FC = () => {
                   value={credentials.confirmPassword}
                   onChange={(e) => setCredentials({ ...credentials, confirmPassword: e.target.value })}
                 />
+
+                
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center focus:outline-none border-none"
@@ -318,12 +320,13 @@ const RegisterPage: React.FC = () => {
             </div>
 
             {/* Botón de registrarse (solo uno) */}
-            <div className="mt-4 sm:mt-6">
+            <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-2 mt-2">
+              {/* Botón de Registro */}
               <button 
                 type="submit" 
                 className="bg-green-600 text-white py-3 w-full rounded-lg flex items-center justify-center space-x-2"
               >
-                <LogIn className="h-5 w-5" />
+                <UserPlus className="h-5 w-5" />
                 <span>Registrarse</span>
               </button>
             </div>
