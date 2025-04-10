@@ -1,35 +1,37 @@
 import express from "express";
 import { check } from "express-validator";
-import { sendVerificationCode, verifyCode, registerUser , checkUserExists} from "../controllers/registerController.js";
+import { 
+    checkUserExists, 
+    generateOtpSecret, 
+    verifyOtpCode, 
+    registerUser 
+} from "../controllers/registerController.js";
 
 const router = express.Router();
-
 
 router.post(
     "/check-user",
     [
-        check("email").isEmail().withMessage("Correo inválido"),
         check("username").notEmpty().withMessage("El usuario es obligatorio"),
     ],
     checkUserExists
 );
 
 router.post(
-    "/send-code",
+    "/generate-otp",
     [
-        check("email").isEmail().withMessage("Correo inválido"),
         check("username").notEmpty().withMessage("El usuario es obligatorio"),
     ],
-    sendVerificationCode
+    generateOtpSecret
 );
 
 router.post(
-    "/verify-code",
+    "/verify-otp",
     [
-        check("email").isEmail().withMessage("Correo inválido"),
         check("code").isLength({ min: 6, max: 6 }).withMessage("El código debe tener 6 dígitos"),
+        check("secret").notEmpty().withMessage("El secreto OTP es obligatorio"),
     ],
-    verifyCode
+    verifyOtpCode
 );
 
 router.post(
@@ -37,7 +39,6 @@ router.post(
     [
         check("nombres").notEmpty().withMessage("El nombre es obligatorio"),
         check("apellidos").notEmpty().withMessage("El apellido es obligatorio"),
-        check("email").isEmail().withMessage("Correo inválido"),
         check("username").notEmpty().withMessage("El usuario es obligatorio"),
         check("password").isLength({ min: 6 }).withMessage("La contraseña debe tener al menos 6 caracteres"),
     ],

@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, Lock, LogIn, Eye, EyeOff, CircleUserRound } from "lucide-react";
 import BackgroundGradient from "../components/BackgroundGradient";
-import { showSuccessAlert,  showErrorAlert, showCustomWarningAlert} from "../components/AlertService";
-import { showLoading } from "../components/loadingService";
+import { showErrorAlert, showCustomWarningAlert } from "../components/AlertService";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [, setUserId] = useState<number | null>(null);
 
   const API_URL = import.meta.env.VITE_URL_BACKEND;
 
@@ -16,99 +16,198 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
 
     try {
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(credentials),
-        });
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || "Error en autenticación");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error en autenticación");
 
-        // ✅ Si las credenciales son correctas, procedemos a enviar el código de verificación
-        sendVerificationCode(data.email, credentials.username);
+      // Guardar el ID del usuario para usarlo en la verificación OTP
+      setUserId(data.userId);
+
+      // Verificar si el usuario requiere autenticación OTP
+      if (data.requiresOtp) {
+        // Mostrar el modal para ingresar el código OTP
+        showOtpVerification(data.userId);
+      } else {
+        // Si no requiere OTP, procesar el inicio de sesión directamente
+        processLoginSuccess(data);
+      }
 
     } catch (error: any) {
-        showErrorAlert("Error en autenticación", error.message || "No se pudo iniciar sesión.");
+      showErrorAlert("Error en autenticación", error.message || "No se pudo iniciar sesión.");
     }
   };
 
-  const sendVerificationCode = async (email: string, username: string) => {
-    try {
-        showLoading("Cargando...");
-
-        const response = await fetch(`${API_URL}/auth/send-code`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, username }),
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || "Error al enviar código de verificación");
-
-        // ✅ Mostrar alerta con input para ingresar el código de verificación
-        const inputContainer = document.createElement("div");
-        inputContainer.className = "mt-3 text-center flex flex-col items-center";
-
-        const codeInput = document.createElement("input");
-        codeInput.id = "verification-code";
-        codeInput.type = "text";
-        codeInput.className = "block pl-3 py-3 border border-gray-300 rounded-lg bg-white text-black focus:outline-none mx-auto w-3/4 max-w-xs";
-        codeInput.placeholder = "Código de verificación";
-
-        const textElement = document.createElement("div");
-        textElement.innerHTML = `Se ha enviado un código a <b>${email}</b>. Ingresa el código para continuar.`;
-        textElement.className = "mb-4";
-
-        inputContainer.appendChild(textElement);
-        inputContainer.appendChild(codeInput);
-
-        await showCustomWarningAlert(
-            "Verificación de Correo",
-            inputContainer,
-            [
-                { 
-                    text: "Confirmar", 
-                    color: "#28a745", 
-                    callback: () => {
-                        const code = (document.getElementById("verification-code") as HTMLInputElement).value;
-                        confirmVerification(code, email);
-                    } 
-                },
-                { text: "Cancelar", color: "#dc3545" }
-            ]
-        );
-
-    } catch (error: any) {
-        showErrorAlert("Error en el envío", error.message || "Ocurrió un problema al enviar el código.");
+  // Procesar el inicio de sesión exitoso
+  const processLoginSuccess = (data: any) => {
+    // Guardar el token JWT
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+      
+      // Establecer el token como header por defecto para futuras peticiones
+      // Esto se puede hacer desde un interceptor en un servicio centralizado
     }
+    
+    // Guardar la información del usuario
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+    
+    navigate('/dashboard');
   };
 
-  const confirmVerification = async (codigoIngresado: string, email: string) => {
-    if (!codigoIngresado?.trim()) {
-        showErrorAlert("Código requerido", "Por favor, ingresa el código de verificación.");
-        return;
-    }
-
+  const showOtpVerification = async (userId: number) => {
     try {
-        showLoading("Verificando código...");
-
-        const verifyResponse = await fetch(`${API_URL}/auth/verify-code`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, code: codigoIngresado }),
-        });
-
-        const verifyData = await verifyResponse.json();
-        if (!verifyResponse.ok) throw new Error(verifyData.message || "Código incorrecto");
-
-        showSuccessAlert("Inicio de sesión exitoso", "Bienvenido de nuevo.");
+      // Crear contenedor para el sistema de 6 inputs
+      const otpContainer = document.createElement("div");
+      otpContainer.className = "flex flex-col items-center p-2";
+      
+      const descElement = document.createElement("p");
+      descElement.className = "text-sm text-center mb-3";
+      descElement.innerHTML = "Ingresa el código de 6 dígitos<br>de tu aplicación de autenticación";
+      
+      // Sistema de 6 inputs individuales
+      const inputContainer = document.createElement("div");
+      inputContainer.className = "flex justify-center space-x-2 mb-4";
+      
+      // Función para manejar la entrada de dígitos (para DOM nativo)
+      const handleInputChange = (index: number) => (e: Event) => {
+        const input = e.target as HTMLInputElement;
+        const value = input.value;
         
-        // ✅ Redirigir después de 2 segundos
-        showSuccessAlert("","Bienvenido");
+        // Si es un dígito, avanzar al siguiente input
+        if (/^\d$/.test(value) && index < 5) {
+          const nextInput = document.getElementById(`otp-input-${index + 1}`);
+          if (nextInput) nextInput.focus();
+        }
+      };
+      
+      // Función para manejar teclas especiales (borrar, pegar) (para DOM nativo)
+      const handleKeyDown = (index: number) => (e: KeyboardEvent) => {
+        const input = e.target as HTMLInputElement;
+        
+        // Si presiona Backspace en un input vacío, retroceder al anterior
+        if (e.key === "Backspace" && input.value === "" && index > 0) {
+          const prevInput = document.getElementById(`otp-input-${index - 1}`);
+          if (prevInput) prevInput.focus();
+        }
+        
+        // Si presiona la tecla V con Ctrl (pegar)
+        if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          
+          // Leer del portapapeles
+          navigator.clipboard.readText().then(pastedText => {
+            // Limpiar cualquier carácter no numérico
+            const digits = pastedText.replace(/\D/g, "").slice(0, 6).split("");
+            
+            // Distribuir los dígitos en los inputs
+            for (let i = 0; i < digits.length; i++) {
+              const inputElement = document.getElementById(`otp-input-${i}`);
+              if (inputElement) {
+                (inputElement as HTMLInputElement).value = digits[i];
+              }
+            }
+            
+            // Enfocar el siguiente input vacío o el último si todos están llenos
+            if (digits.length < 6) {
+              const nextInput = document.getElementById(`otp-input-${digits.length}`);
+              if (nextInput) nextInput.focus();
+            } else {
+              const lastInput = document.getElementById(`otp-input-5`);
+              if (lastInput) lastInput.focus();
+            }
+          });
+        }
+      };
+      
+      // Limpiar el contenedor para asegurarnos que no haya inputs previos
+      inputContainer.innerHTML = '';
+      
+      // Crear solo 6 inputs con color de fondo blanco
+      for (let i = 0; i < 6; i++) {
+        const input = document.createElement("input");
+        input.id = `otp-input-${i}`;
+        input.type = "text";
+        input.maxLength = 1;
+        input.className = "w-10 h-12 text-center border border-gray-300 rounded-md text-lg font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-black";
+        input.inputMode = "numeric";
+        input.pattern = "[0-9]";
+        
+        // Agregar event listeners
+        input.addEventListener("input", handleInputChange(i));
+        input.addEventListener("keydown", handleKeyDown(i));
+        
+        inputContainer.appendChild(input);
+      }
+      
+      otpContainer.appendChild(descElement);
+      otpContainer.appendChild(inputContainer);
+
+      // Mostrar el modal con los inputs para el código OTP
+      await showCustomWarningAlert(
+        "Verificación de Seguridad",
+        otpContainer,
+        [
+          { 
+            text: "Verificar", 
+            color: "#28a745", 
+            callback: () => {
+              // Recopilar los valores de los 6 inputs para formar el código completo
+              let code = "";
+              for (let i = 0; i < 6; i++) {
+                const inputElement = document.getElementById(`otp-input-${i}`) as HTMLInputElement;
+                code += inputElement.value || "";
+              }
+              verifyOtpCode(userId, code);
+            } 
+          },
+          { 
+            text: "Cancelar", 
+            color: "#ff4f4f",
+            callback: () => {
+              // No hace nada, solo cierra el modal
+            }
+          }
+        ]
+      );
+
+      // Enfocar el primer input automáticamente
+      setTimeout(() => {
+        const firstInput = document.getElementById("otp-input-0");
+        if (firstInput) firstInput.focus();
+      }, 300);
 
     } catch (error: any) {
-        showErrorAlert("Error en verificación", error.message || "Código incorrecto.");
+      showErrorAlert("Error", error.message || "Ocurrió un problema al mostrar la verificación.");
+    }
+  };
+
+  const verifyOtpCode = async (userId: number, otpCode: string) => {
+    if (!otpCode || otpCode.length !== 6 || !/^\d+$/.test(otpCode)) {
+      showErrorAlert("Código inválido", "Por favor, ingresa un código de 6 dígitos.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, otpCode }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Código incorrecto");
+
+      // Si la verificación OTP es exitosa, procesar el inicio de sesión
+      processLoginSuccess(data);
+
+    } catch (error: any) {
+      showErrorAlert("Error en verificación", error.message || "Código incorrecto.");
     }
   };
 
@@ -131,7 +230,7 @@ const LoginPage: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-            {/* Campo de usuario/correo */}
+            {/* Campo de usuario */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
                 <User className="h-5 w-5 text-gray-500" />
@@ -139,7 +238,7 @@ const LoginPage: React.FC = () => {
               <input
                 type="text"
                 className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-white text-black focus:outline-none"
-                placeholder="Usuario o correo electrónico"
+                placeholder="Nombre de usuario"
                 value={credentials.username}
                 onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
               />

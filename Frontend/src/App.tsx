@@ -2,16 +2,20 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useEffect, useState } from "react";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
-import HomePage from "./pages/Home";
-import AdminPage from "./pages/Home";
-import EmployeePage from "./pages/Home";
+import Home from "./pages/Home";
+import Productos from "./pages/Products";
+import Usuarios from "./pages/Users";
+import Roles from "./pages/Roles";
+import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Definir interface para el usuario
 interface UserData {
   id?: number;
-  nombre?: string;
-  role?: number; // 1 = Admin, 2 = Empleado, etc.
+  nombres?: string;
+  apellidos?: string;
+  username?: string;
+  rol?: number; // 1 = Admin, 2 = Empleado, etc.
   [key: string]: any;
 }
 
@@ -47,7 +51,7 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-screen flex items-center justify-center">
         <p className="text-blue-600 text-xl">Cargando...</p>
       </div>
     );
@@ -56,34 +60,42 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Página de login y registro, redirigir si el usuario ya está autenticado */}
-        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
-        <Route path="/register" element={!user ? <RegisterPage /> : <Navigate to="/" replace />} />
+        {/* Rutas públicas */}
+        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/register" element={!user ? <RegisterPage /> : <Navigate to="/dashboard" replace />} />
 
-        {/* Página principal, redirigir si no hay usuario */}
-        <Route path="/" element={user ? <HomePage /> : <Navigate to="/login" replace />} />
+        {/* Ruta principal siempre redirige */}
+        <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
 
-        {/* Rutas protegidas por roles */}
-        <Route path="/admin" element={
-          <ProtectedRoute allowedRoles={[1]}>
-            <AdminPage />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/employee" element={
-          <ProtectedRoute allowedRoles={[2]}>
-            <EmployeePage />
-          </ProtectedRoute>
-        } />
+        {/* Rutas protegidas con Layout */}
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={
+            <ProtectedRoute allowedRoles={[1, 2]}>
+              <Home />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/dashboard" element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
-            <HomePage />
-          </ProtectedRoute>
-        } />
+          <Route path="/productos" element={
+            <ProtectedRoute allowedRoles={[1, 2]}>
+              <Productos />
+            </ProtectedRoute>
+          } />
 
-        {/* Redirigir cualquier otra ruta a login si no hay usuario */}
-        <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
+          <Route path="/usuarios" element={
+            <ProtectedRoute allowedRoles={[1]}>
+              <Usuarios />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/roles" element={
+            <ProtectedRoute allowedRoles={[1]}>
+              <Roles />
+            </ProtectedRoute>
+          } />
+        </Route>
+
+        {/* Cualquier otra ruta redirige a home o login */}
+        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       </Routes>
     </Router>
   );

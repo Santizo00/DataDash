@@ -10,8 +10,9 @@ interface ProtectedRouteProps {
 // Definir interfaz para el tipo de usuario
 interface UserData {
   id?: number;
-  nombre?: string;
-  role?: number;
+  nombres?: string;
+  apellidos?: string;
+  rol?: number; // Asegúrate que sea 'rol' y no 'role'
   [key: string]: any;
 }
 
@@ -25,6 +26,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
       try {
         const userStr = localStorage.getItem("user");
         if (!userStr) {
+          console.log("No hay información de usuario en localStorage");
           setHasAccess(false);
           setIsChecking(false);
           return;
@@ -34,6 +36,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         
         // Si no se especifican roles, cualquier usuario autenticado tiene acceso
         if (!allowedRoles || allowedRoles.length === 0) {
+          console.log("No se especificaron roles, acceso permitido");
           setHasAccess(true);
           setIsChecking(false);
           return;
@@ -41,10 +44,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         
         // Verificar si el usuario tiene el rol permitido
         const userHasAccess = user && 
-                             user.role !== undefined && 
-                             allowedRoles.includes(user.role);
+                             user.rol !== undefined && 
+                             allowedRoles.includes(user.rol);
         
-        console.log("Rol del usuario:", user.role);
+        console.log("Rol del usuario:", user.rol);
         console.log("Roles permitidos:", allowedRoles);
         console.log("Tiene acceso:", userHasAccess);
         

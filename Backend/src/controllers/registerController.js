@@ -1,15 +1,15 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto-js";
 import pool from "../config/ConfigMySQL.js";
-import nodemailer from "nodemailer";
-
+import speakeasy from "speakeasy"; // Para generar secretos y verificar códigos OTP
+import QRCode from "qrcode"; // Para generar códigos QR
 
 export const checkUserExists = async (req, res) => {
-    const { email, username } = req.body;
+    const { username } = req.body;
 
     try {
-        if (!email || !username) {
-            return res.status(400).json({ message: "Correo y usuario son requeridos" });
+        if (!username) {
+            return res.status(400).json({ message: "El nombre de usuario es requerido" });
         }
 
         if (!process.env.SECRET_KEY) {
@@ -17,26 +17,23 @@ export const checkUserExists = async (req, res) => {
         }
 
         // Consultar todos los usuarios en la base de datos
-        const [users] = await pool.query("SELECT id_usuario, correo, nombre_usuario FROM usuarios");
+        const [users] = await pool.query("SELECT id_usuario, nombre_usuario FROM usuarios");
 
-        let emailExists = false;
         let usernameExists = false;
 
         // Desencriptar y comparar cada usuario en la base de datos
         for (const user of users) {
-            const decryptedEmail = crypto.AES.decrypt(user.correo, process.env.SECRET_KEY).toString(crypto.enc.Utf8);
             const decryptedUsername = crypto.AES.decrypt(user.nombre_usuario, process.env.SECRET_KEY).toString(crypto.enc.Utf8);
 
-            if (decryptedEmail === email) emailExists = true;
-            if (decryptedUsername === username) usernameExists = true;
-
-            if (emailExists || usernameExists) break; 
+            if (decryptedUsername === username) {
+                usernameExists = true;
+                break;
+            }
         }
 
-        // Responder si existen en la base de datos
+        // Responder si existe en la base de datos
         res.json({
-            exists: emailExists || usernameExists,
-            emailExists,
+            exists: usernameExists,
             usernameExists
         });
 
@@ -46,77 +43,68 @@ export const checkUserExists = async (req, res) => {
     }
 };
 
-const verificationCodes = new Map(); 
-
-export const sendVerificationCode = async (req, res) => {
-    const { email, username } = req.body;
+export const generateOtpSecret = async (req, res) => {
+    const { username } = req.body;
 
     try {
-        if (!email || !username) {
-            return res.status(400).json({ message: "Correo y usuario son requeridos" });
+        if (!username) {
+            return res.status(400).json({ message: "El nombre de usuario es requerido" });
         }
 
-        // Generar código de 6 dígitos
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // Guardar código con expiración de 2 minutos
-        verificationCodes.set(email, { code, expiresAt: Date.now() + 2 * 60 * 1000 });
-
-        // Configuración del servicio de correo
-        let transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
+        // Generar un secreto único para la autenticación OTP
+        const secret = speakeasy.generateSecret({
+            name: `DataDash` // Etiqueta que aparecerá en la app de autenticación
         });
 
-        await transporter.sendMail({
-            from: `"Soporte" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Código de Verificación",
-            text: `Tu código de verificación es: ${code}. Expira en 2 minutos.`,
-        });
+        // Generar URL para código QR
+        const otpauth_url = secret.otpauth_url;
+        
+        // Generar código QR como una URL de datos (data URL)
+        const qrCodeUrl = await QRCode.toDataURL(otpauth_url);
 
-        res.json({ message: "Código enviado" });
+        // Devolver la información al cliente
+        res.json({
+            secret: secret.base32, // Secreto en formato base32 para guardar
+            qrCode: qrCodeUrl // URL de datos del código QR para mostrar al usuario
+        });
 
     } catch (error) {
-        console.error("❌ Error al enviar código:", error);
-        res.status(500).json({ message: "Error en el servidor" });
+        console.error("❌ Error al generar secreto OTP:", error);
+        res.status(500).json({ message: "Error en el servidor", error: error.message });
     }
 };
 
-export const verifyCode = (req, res) => {
-    const { email, code } = req.body;
+export const verifyOtpCode = (req, res) => {
+    const { code, secret } = req.body;
 
-    if (!email || !code) {
-        return res.status(400).json({ message: "Datos inválidos" });
+    if (!code || !secret) {
+        return res.status(400).json({ message: "Código y secreto son requeridos" });
     }
 
-    const storedCode = verificationCodes.get(email);
+    try {
+        // Verificar el código OTP usando el secreto
+        const verified = speakeasy.totp.verify({
+            secret: secret,
+            encoding: 'base32',
+            token: code
+        });
 
-    if (!storedCode) {
-        return res.status(400).json({ message: "Código expirado o inválido" });
+        if (!verified) {
+            return res.status(400).json({ message: "Código incorrecto" });
+        }
+
+        return res.json({ message: "Código verificado correctamente" });
+    } catch (error) {
+        console.error("❌ Error al verificar código OTP:", error);
+        return res.status(500).json({ message: "Error en la verificación", error: error.message });
     }
-
-    if (Date.now() > storedCode.expiresAt) {
-        verificationCodes.delete(email);
-        return res.status(400).json({ message: "Código expirado, solicita uno nuevo" });
-    }
-
-    if (storedCode.code !== code) {
-        return res.status(400).json({ message: "Código incorrecto" });
-    }
-
-    verificationCodes.delete(email);
-    return res.json({ message: "Código verificado" });
 };
 
 export const registerUser = async (req, res) => {
-    const { nombres, apellidos, email, username, password } = req.body;
+    const { nombres, apellidos, username, password, otpSecret } = req.body;
 
     try {
-        if (!email || !username || !password || !nombres || !apellidos) {
+        if (!username || !password || !nombres || !apellidos) {
             return res.status(400).json({ message: "Todos los campos son obligatorios" });
         }
 
@@ -124,24 +112,30 @@ export const registerUser = async (req, res) => {
             throw new Error("SECRET_KEY no está definida en el entorno.");
         }
 
-        // Encriptar email y usuario antes de hacer la consulta
-        const encryptedEmail = crypto.AES.encrypt(email, process.env.SECRET_KEY).toString();
+        // Encriptar username antes de hacer la consulta
         const encryptedUsername = crypto.AES.encrypt(username, process.env.SECRET_KEY).toString();
 
-        // Verificar si ya existe el usuario o correo en la base de datos
-        const [emailExists] = await pool.query("SELECT id_usuario FROM usuarios WHERE correo = ?", [encryptedEmail]);
+        // Verificar si ya existe el usuario en la base de datos
         const [userExists] = await pool.query("SELECT id_usuario FROM usuarios WHERE nombre_usuario = ?", [encryptedUsername]);
 
-        if (emailExists.length > 0) return res.status(400).json({ message: "Correo ya registrado" });
         if (userExists.length > 0) return res.status(400).json({ message: "Usuario ya existe" });
 
         // Hashear la contraseña antes de insertarla en la base de datos
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insertar usuario en la base de datos con datos encriptados y contraseña hasheada
+        // Encriptar el secreto OTP si está presente
+        let encryptedOtpSecret = null;
+        let otpActivado = false;
+        
+        if (otpSecret) {
+            encryptedOtpSecret = crypto.AES.encrypt(otpSecret, process.env.SECRET_KEY).toString();
+            otpActivado = true;
+        }
+
+        // Insertar usuario en la base de datos con datos encriptados
         await pool.query(
-            "INSERT INTO usuarios (nombres, apellidos, correo, nombre_usuario, contrasena, id_rol) VALUES (?, ?, ?, ?, ?, ?)",
-            [nombres, apellidos, encryptedEmail, encryptedUsername, hashedPassword, 2]
+            "INSERT INTO usuarios (nombres, apellidos, nombre_usuario, contrasena, passotp, otp_activado, id_rol) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [nombres, apellidos, encryptedUsername, hashedPassword, encryptedOtpSecret, otpActivado, 2]
         );
 
         res.status(201).json({ message: "Usuario registrado con éxito" });

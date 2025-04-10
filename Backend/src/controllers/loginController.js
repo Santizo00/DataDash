@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto-js";
 import pool from "../config/ConfigMySQL.js";
-import nodemailer from "nodemailer";
+import speakeasy from "speakeasy"; // Para verificar tokens OTP
 
 export const loginUser = async (req, res) => {
     const { username, password } = req.body;
@@ -20,13 +20,12 @@ export const loginUser = async (req, res) => {
 
         let foundUser = null;
 
-        // 🔹 Buscar el usuario desencriptando el correo y nombre de usuario
+        // Buscar el usuario desencriptando el nombre de usuario
         for (const user of users) {
-            const decryptedEmail = crypto.AES.decrypt(user.correo, process.env.SECRET_KEY).toString(crypto.enc.Utf8);
             const decryptedUsername = crypto.AES.decrypt(user.nombre_usuario, process.env.SECRET_KEY).toString(crypto.enc.Utf8);
 
-            if (decryptedEmail === username || decryptedUsername === username) {
-                foundUser = { ...user, decryptedEmail };
+            if (decryptedUsername === username) {
+                foundUser = { ...user, decryptedUsername };
                 break;
             }
         }
@@ -35,14 +34,22 @@ export const loginUser = async (req, res) => {
             return res.status(401).json({ message: "Usuario incorrecto. Verifica y vuelve a intentarlo." });
         }
 
-        // 🔹 Verificar la contraseña con bcrypt
+        // Verificar la contraseña con bcrypt
         const isPasswordValid = await bcrypt.compare(password, foundUser.contrasena);
         if (!isPasswordValid) {
             return res.status(401).json({ message: "Contraseña incorrecta. Verifica y vuelve a intentarlo." });
         }
 
-        // 🔹 Si todo es correcto, enviar el correo desencriptado al frontend
-        return res.status(200).json({ message: "Inicio de sesión exitoso", email: foundUser.decryptedEmail });
+        // Verificar si el usuario tiene OTP activado
+        const requiresOtp = foundUser.otp_activado || false;
+        const userId = foundUser.id_usuario;
+
+        // Si todo es correcto, enviar la información al frontend
+        return res.status(200).json({ 
+            message: "Credenciales correctas", 
+            requiresOtp,
+            userId
+        });
 
     } catch (error) {
         console.error("❌ Error en autenticación:", error);
@@ -50,69 +57,60 @@ export const loginUser = async (req, res) => {
     }
 };
 
-
-const verificationCodes = new Map(); 
-
-export const sendVerificationCode = async (req, res) => {
-    const { email, username } = req.body;
+export const verifyOtp = async (req, res) => {
+    const { userId, otpCode } = req.body;
 
     try {
-        if (!email || !username) {
-            return res.status(400).json({ message: "Correo y usuario son requeridos" });
+        if (!userId || !otpCode) {
+            return res.status(400).json({ message: "ID de usuario y código OTP son requeridos" });
         }
 
-        // Generar código de 6 dígitos
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        if (!process.env.SECRET_KEY) {
+            throw new Error("SECRET_KEY no está definida en el entorno.");
+        }
 
-        // Guardar código con expiración de 2 minutos
-        verificationCodes.set(email, { code, expiresAt: Date.now() + 2 * 60 * 1000 });
+        // Obtener el usuario de la base de datos
+        const [users] = await pool.query("SELECT * FROM usuarios WHERE id_usuario = ?", [userId]);
+        
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuario no encontrado" });
+        }
 
-        // Configuración del servicio de correo
-        let transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
+        const user = users[0];
+
+        // Verificar si el usuario tiene OTP activado
+        if (!user.otp_activado || !user.passotp) {
+            return res.status(400).json({ message: "Este usuario no tiene activada la autenticación OTP" });
+        }
+
+        // Desencriptar el secreto OTP
+        const decryptedOtpSecret = crypto.AES.decrypt(user.passotp, process.env.SECRET_KEY).toString(crypto.enc.Utf8);
+
+        // Verificar el código OTP
+        const verified = speakeasy.totp.verify({
+            secret: decryptedOtpSecret,
+            encoding: 'base32',
+            token: otpCode
         });
 
-        await transporter.sendMail({
-            from: `"Soporte" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Código de Verificación",
-            text: `Tu código de verificación es: ${code}. Expira en 2 minutos.`,
-        });
+        if (!verified) {
+            return res.status(401).json({ message: "Código OTP incorrecto" });
+        }
 
-        res.json({ message: "Código enviado" });
+        // Si todo es correcto, devolver información del usuario necesaria para la sesión
+        return res.status(200).json({ 
+            message: "Inicio de sesión exitoso",
+            user: {
+                id: user.id_usuario,
+                nombres: user.nombres,
+                apellidos: user.apellidos,
+                username: crypto.AES.decrypt(user.nombre_usuario, process.env.SECRET_KEY).toString(crypto.enc.Utf8),
+                rol: user.id_rol
+            }
+        });
 
     } catch (error) {
-        console.error("❌ Error al enviar código:", error);
+        console.error("❌ Error en verificación OTP:", error);
         res.status(500).json({ message: "Error en el servidor" });
     }
-};
-
-export const verifyCode = (req, res) => {
-    const { email, code } = req.body;
-
-    if (!email || !code) {
-        return res.status(400).json({ message: "Datos inválidos" });
-    }
-
-    const storedCode = verificationCodes.get(email);
-
-    if (!storedCode) {
-        return res.status(400).json({ message: "Código expirado o inválido" });
-    }
-
-    if (Date.now() > storedCode.expiresAt) {
-        verificationCodes.delete(email);
-        return res.status(400).json({ message: "Código expirado, solicita uno nuevo" });
-    }
-
-    if (storedCode.code !== code) {
-        return res.status(400).json({ message: "Código incorrecto" });
-    }
-
-    verificationCodes.delete(email);
-    return res.json({ message: "Código verificado" });
 };

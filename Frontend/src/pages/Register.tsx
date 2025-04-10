@@ -1,15 +1,14 @@
 import React, { useState } from "react";
-import { User, Mail, Lock, Eye, EyeOff, CircleUserRound, UserRound , UserPlus } from "lucide-react";
+import { User, Lock, Eye, EyeOff, CircleUserRound, UserRound, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BackgroundGradient from "../components/BackgroundGradient";
-import { showSuccessAlert,  showErrorAlert, showCustomWarningAlert} from "../components/AlertService";
+import { showSuccessAlert, showErrorAlert, showCustomWarningAlert } from "../components/AlertService";
 import { showLoading } from "../components/loadingService";
 
 const RegisterPage: React.FC = () => {
   const [credentials, setCredentials] = useState({
     nombres: "",
     apellidos: "",
-    email: "",
     username: "",
     password: "",
     confirmPassword: ""
@@ -18,6 +17,7 @@ const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [, setErrors] = useState<{ [key: string]: string }>({});
+  const [, setOtpSecret] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_URL_BACKEND;
@@ -26,7 +26,6 @@ const RegisterPage: React.FC = () => {
     navigate('/login');
   };
 
-  // Modificación en handleSubmit para utilizar showCustomWarningAlert
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
   
@@ -34,12 +33,6 @@ const RegisterPage: React.FC = () => {
   
     if (!credentials.nombres.trim()) formErrors.nombres = "El nombre es obligatorio.";
     if (!credentials.apellidos.trim()) formErrors.apellidos = "El apellido es obligatorio.";
-    if (!credentials.email.trim()) {
-      formErrors.email = "El correo electrónico es obligatorio.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email)) {
-      formErrors.email = "Ingrese un correo válido.";
-    }
-  
     if (!credentials.username.trim()) formErrors.username = "El nombre de usuario es obligatorio.";
     if (!credentials.password) formErrors.password = "La contraseña es obligatoria.";
     else if (credentials.password.length < 6) formErrors.password = "La contraseña debe tener al menos 6 caracteres.";
@@ -59,131 +52,244 @@ const RegisterPage: React.FC = () => {
     }
   
     try {
-      // 1️⃣ Verificar si el usuario y/o correo ya están en uso antes de enviar código
+      // 1️⃣ Verificar si el usuario ya está en uso
       const checkResponse = await fetch(`${API_URL}/register/check-user`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: credentials.email, username: credentials.username }),
+        body: JSON.stringify({ username: credentials.username }),
       });
   
       const checkData = await checkResponse.json();
-      if (!checkResponse.ok) throw new Error(checkData.message || "Error al verificar usuario/correo");
+      if (!checkResponse.ok) throw new Error(checkData.message || "Error al verificar usuario");
   
       if (checkData.exists) {
-        let errorMessage = "<b>No se pudo completar el registro debido a:</b><br>";
-  
-        if (checkData.emailExists) errorMessage += "- El correo ya está en uso.<br>";
-        if (checkData.usernameExists) errorMessage += "- El usuario ya está en uso.<br>";
-  
-        showErrorAlert("Registro no disponible", errorMessage);
+        showErrorAlert("Registro no disponible", "El nombre de usuario ya está en uso.");
         return;
       }
   
-      sendVerificationCode();
+      // 2️⃣ Generar secreto OTP y mostrar al usuario
+      generateOtpSecret();
   
     } catch (error: any) {
-      showErrorAlert("Error en la validación", error.message || "Ocurrió un problema al verificar el usuario/correo.");
+      showErrorAlert("Error en la validación", error.message || "Ocurrió un problema al verificar el usuario.");
     }
   };
 
-  const sendVerificationCode = async () => {
+  const generateOtpSecret = async () => {
     try {
-      showLoading("Cargando...");
+      showLoading("Generando código QR...");
   
-      const response = await fetch(`${API_URL}/register/send-code`, {
+      const response = await fetch(`${API_URL}/register/generate-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: credentials.email, username: credentials.username }),
+        body: JSON.stringify({ username: credentials.username }),
       });
   
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Error al enviar código de verificación");
+      if (!response.ok) throw new Error(data.message || "Error al generar código OTP");
+      
+      setOtpSecret(data.secret);
   
-      // ✅ Mostrar alerta con input para ingresar el código
+      // Crear contenedor para mostrar el código QR y las instrucciones
+      const qrContainer = document.createElement("div");
+      qrContainer.className = "flex flex-col items-center p-2";
+      
+      const descElement = document.createElement("p");
+      descElement.className = "text-sm text-center mb-3";
+      descElement.innerHTML = "Escanea este código QR con tu aplicación de autenticador<br>(Google Authenticator, Microsoft Authenticator, Authy, etc.)";
+      
+      // Imagen del QR
+      const qrImage = document.createElement("img");
+      qrImage.src = data.qrCode;
+      qrImage.alt = "Código QR para autenticación";
+      qrImage.className = "w-44 h-44 mx-auto mb-2";
+      
+      // Código secreto (por si quieren ingresarlo manualmente)
+      const secretElement = document.createElement("div");
+      secretElement.className = "text-xs text-center mb-3 p-2 bg-gray-100 rounded-md";
+      secretElement.innerHTML = `<span class="font-bold">Código secreto:</span><br>${data.secret}`;
+      
+      // Sistema de 6 inputs individuales
       const inputContainer = document.createElement("div");
-      inputContainer.className = "mt-3 text-center flex flex-col items-center";
+      inputContainer.className = "flex justify-center space-x-2 mb-4";
+      
+      // Función para manejar la entrada de dígitos (para DOM nativo)
+      const handleInputChange = (index: number) => (e: Event) => {
+        const input = e.target as HTMLInputElement;
+        const value = input.value;
+        
+        // Si es un dígito, avanzar al siguiente input
+        if (/^\d$/.test(value) && index < 5) {
+          const nextInput = document.getElementById(`otp-input-${index + 1}`);
+          if (nextInput) nextInput.focus();
+        }
+      };
+      
+      // Función para manejar teclas especiales (borrar, pegar) (para DOM nativo)
+      const handleKeyDown = (index: number) => (e: KeyboardEvent) => {
+        const input = e.target as HTMLInputElement;
+        
+        // Si presiona Backspace en un input vacío, retroceder al anterior
+        if (e.key === "Backspace" && input.value === "" && index > 0) {
+          const prevInput = document.getElementById(`otp-input-${index - 1}`);
+          if (prevInput) prevInput.focus();
+        }
+        
+        // Si presiona la tecla V con Ctrl (pegar)
+        if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          
+          // Leer del portapapeles
+          navigator.clipboard.readText().then(pastedText => {
+            // Limpiar cualquier carácter no numérico
+            const digits = pastedText.replace(/\D/g, "").slice(0, 6).split("");
+            
+            // Distribuir los dígitos en los inputs
+            for (let i = 0; i < digits.length; i++) {
+              const inputElement = document.getElementById(`otp-input-${i}`);
+              if (inputElement) {
+                (inputElement as HTMLInputElement).value = digits[i];
+              }
+            }
+            
+            // Enfocar el siguiente input vacío o el último si todos están llenos
+            if (digits.length < 6) {
+              const nextInput = document.getElementById(`otp-input-${digits.length}`);
+              if (nextInput) nextInput.focus();
+            } else {
+              const lastInput = document.getElementById(`otp-input-5`);
+              if (lastInput) lastInput.focus();
+            }
+          });
+        }
+      };
+      
+      // Limpiar el contenedor para asegurarnos que no haya inputs previos
+      inputContainer.innerHTML = '';
+      
+      // Crear solo 6 inputs con color de fondo blanco
+      for (let i = 0; i < 6; i++) {
+        const input = document.createElement("input");
+        input.id = `otp-input-${i}`;
+        input.type = "text";
+        input.maxLength = 1;
+        input.className = "w-10 h-12 text-center border border-gray-300 rounded-md text-lg font-bold focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 bg-white text-black";
+        input.inputMode = "numeric";
+        input.pattern = "[0-9]";
+        
+        // Agregar event listeners
+        input.addEventListener("input", handleInputChange(i));
+        input.addEventListener("keydown", handleKeyDown(i));
+        
+        inputContainer.appendChild(input);
+      }
+      
+      // Agregar todos los elementos al contenedor principal
+      qrContainer.appendChild(descElement);
+      qrContainer.appendChild(qrImage);
+      qrContainer.appendChild(secretElement);
+      qrContainer.appendChild(inputContainer);
   
-      const codeInput = document.createElement("input");
-      codeInput.id = "verification-code";
-      codeInput.type = "text";
-      codeInput.className = "block pl-3 py-3 border border-gray-300 rounded-lg bg-white text-black focus:outline-none mx-auto w-3/4 max-w-xs";
-      codeInput.placeholder = "Código de verificación";
-  
-      const textElement = document.createElement("div");
-      textElement.innerHTML = `Se ha enviado un código a <b>${credentials.email}</b>. Ingresa el código para continuar.`;
-      textElement.className = "mb-4";
-  
-      inputContainer.appendChild(textElement);
-      inputContainer.appendChild(codeInput);
-  
+      // Mostrar modal con el QR y el input para el código
       await showCustomWarningAlert(
-        "Verificación de Correo",
-        inputContainer,
+        "Configura tu Autenticador",
+        qrContainer,
         [
           { 
-            text: "Confirmar", 
+            text: "Verificar Código", 
             color: "#28a745", 
             callback: () => {
-              const code = (document.getElementById("verification-code") as HTMLInputElement).value;
-              confirmVerification(code);
+              // Recopilar los valores de los 6 inputs para formar el código completo
+              let code = "";
+              for (let i = 0; i < 6; i++) {
+                const inputElement = document.getElementById(`otp-input-${i}`) as HTMLInputElement;
+                code += inputElement.value || ""; // Agregamos el "" en caso de que el input esté vacío
+              }
+              verifyOtpCode(code, data.secret);
             } 
           },
-          { text: "Cancelar", color: "#dc3545" }
+          { 
+            text: "Cancelar", 
+            color: "#ff4f4f",
+            callback: () => {
+              // Función de cancelación
+            }
+          }
         ]
       );
   
+      // Enfocar el primer input automáticamente
+      setTimeout(() => {
+        const firstInput = document.getElementById("otp-input-0");
+        if (firstInput) firstInput.focus();
+      }, 300);
+  
     } catch (error: any) {
-      showErrorAlert("Error en el envío", error.message || "Ocurrió un problema al enviar el código.");
+      showErrorAlert("Error en la generación OTP", error.message || "Ocurrió un problema al generar el código OTP.");
     }
   };
   
-  const confirmVerification = async (codigoIngresado: string) => {
-    if (!codigoIngresado?.trim()) {
+  const verifyOtpCode = async (code: string, secret: string) => {
+    if (!code?.trim()) {
       showErrorAlert("Código requerido", "Por favor, ingresa el código de verificación.");
       return;
     }
   
     try {
-      const verifyResponse = await fetch(`${API_URL}/register/verify-code`, {
+      const verifyResponse = await fetch(`${API_URL}/register/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: credentials.email, code: codigoIngresado }),
+        body: JSON.stringify({ code, secret }),
       });
   
       const verifyData = await verifyResponse.json();
       if (!verifyResponse.ok) throw new Error(verifyData.message || "Código incorrecto");
   
-      await registerUser();
+      // Si la verificación es exitosa, registrar con OTP
+      registerUser(secret);
   
     } catch (error: any) {
       showErrorAlert("Error en verificación", error.message || "Ocurrió un problema al verificar el código.");
     }
   };
 
-  const registerUser = async () => {
+  const registerUser = async (verifiedSecret: string | null) => {
     try {
+      const registerData = {
+        nombres: credentials.nombres,
+        apellidos: credentials.apellidos,
+        username: credentials.username,
+        password: credentials.password,
+        otpSecret: verifiedSecret // Puede ser null si el usuario omitió la verificación
+      };
+      
       const registerResponse = await fetch(`${API_URL}/register/createUser`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials), // Enviamos los datos sin encriptar (el backend los encripta)
+        body: JSON.stringify(registerData),
       });
   
-      const registerData = await registerResponse.json();
-      if (!registerResponse.ok) throw new Error(registerData.message || "Error en el registro");
+      const responseData = await registerResponse.json();
+      if (!registerResponse.ok) throw new Error(responseData.message || "Error en el registro");
   
-      showSuccessAlert("Registro exitoso", "Tu cuenta ha sido creada con éxito.");
+      showSuccessAlert(
+        "Registro exitoso", 
+        verifiedSecret 
+          ? "Tu cuenta ha sido creada con éxito." 
+          : "Tu cuenta ha sido creada con éxito."
+      );
   
-      // ✅ Limpiar todos los campos del formulario
+      // Limpiar todos los campos del formulario
       setCredentials({
         nombres: "",
         apellidos: "",
-        email: "",
         username: "",
         password: "",
         confirmPassword: ""
       });
+      setOtpSecret(null);
   
-      // ✅ Redirigir al usuario al login después de 2 segundos
+      // Redirigir al usuario al login después de 2 segundos
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -192,8 +298,6 @@ const RegisterPage: React.FC = () => {
       showErrorAlert("Error en el registro", error.message || "Ocurrió un problema al registrar el usuario.");
     }
   };
-  
-
 
   return (
     <BackgroundGradient>
@@ -241,35 +345,18 @@ const RegisterPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Fila: Correo y Usuario */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              {/* Campo de correo electrónico */}
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                  <Mail className="h-5 w-5 text-gray-500" />
-                </div>
-                <input
-                  type="email"
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-white text-black focus:outline-none"
-                  placeholder="Correo electrónico"
-                  value={credentials.email}
-                  onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
-                />
+            {/* Campo de nombre de usuario */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
+                <User className="h-5 w-5 text-gray-500" />
               </div>
-
-              {/* Campo de nombre de usuario */}
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                  <User className="h-5 w-5 text-gray-500" />
-                </div>
-                <input
-                  type="text"
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-white text-black focus:outline-none"
-                  placeholder="Nombre de usuario"
-                  value={credentials.username}
-                  onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                />
-              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-white text-black focus:outline-none"
+                placeholder="Nombre de usuario"
+                value={credentials.username}
+                onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+              />
             </div>
 
             {/* Fila: Contraseña y Confirmar contraseña */}
@@ -307,8 +394,6 @@ const RegisterPage: React.FC = () => {
                   value={credentials.confirmPassword}
                   onChange={(e) => setCredentials({ ...credentials, confirmPassword: e.target.value })}
                 />
-
-                
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center focus:outline-none border-none"
@@ -319,9 +404,8 @@ const RegisterPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Botón de registrarse (solo uno) */}
+            {/* Botón de registrarse */}
             <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-2 mt-2">
-              {/* Botón de Registro */}
               <button 
                 type="submit" 
                 className="bg-green-600 text-white py-3 w-full rounded-lg flex items-center justify-center space-x-2"
@@ -331,7 +415,7 @@ const RegisterPage: React.FC = () => {
               </button>
             </div>
             
-            {/* Texto de redirección a login (funcional) */}
+            {/* Texto de redirección a login */}
             <div className="text-center text-sm text-gray-600 mt-2 sm:mt-4">
               <span>¿Ya tienes una cuenta? </span>
               <button

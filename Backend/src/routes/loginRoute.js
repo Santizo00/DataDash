@@ -1,31 +1,24 @@
 import express from "express";
 import { check } from "express-validator";
-import { loginUser, sendVerificationCode, verifyCode} from "../controllers/loginController.js";
+import { loginUser, verifyOtp } from "../controllers/loginController.js";
 
 const router = express.Router();
 
 /**
- * 🆕 Ruta para iniciar sesión
+ * Ruta para validar credenciales de inicio de sesión
  */
 router.post("/login", loginUser);
 
-
+/**
+ * Ruta para verificar el código OTP
+ */
 router.post(
-    "/send-code",
+    "/verify-otp",
     [
-        check("email").isEmail().withMessage("Correo inválido"),
-        check("username").notEmpty().withMessage("El usuario es obligatorio"),
+        check("userId").isNumeric().withMessage("ID de usuario inválido"),
+        check("otpCode").isLength({ min: 6, max: 6 }).withMessage("El código debe tener 6 dígitos"),
     ],
-    sendVerificationCode
-);
-
-router.post(
-    "/verify-code",
-    [
-        check("email").isEmail().withMessage("Correo inválido"),
-        check("code").isLength({ min: 6, max: 6 }).withMessage("El código debe tener 6 dígitos"),
-    ],
-    verifyCode
+    verifyOtp
 );
 
 export default router;

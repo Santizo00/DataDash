@@ -1,10 +1,10 @@
-import BackgroundGradient from "../components/BackgroundGradient";
+import React from "react";
 
-const Home = () => {
+const Home: React.FC = () => {
   return (
-    <BackgroundGradient>
-      <div>Welcome Homes</div>
-    </BackgroundGradient>
+    <div>
+      <h1 className="text-2xl font-bold text-gray-800">Bienvenido al Dashboard</h1>
+    </div>
   );
 };
 
