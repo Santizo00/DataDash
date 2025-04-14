@@ -5,12 +5,12 @@ import cors from "cors";
 // Importar las rutas
 import registerRoutes from "./routes/registerRoute.js";
 import loginRoutes from "./routes/loginRoute.js";
+import mysqlRoute from './routes/productMySQLRoute.js';
 
 // Importar las funciones de test de conexión
 import { testMySQLConnection } from "./config/ConfigMySQL.js";
 import { testOracleConnection } from "./config/ConfigOracle.js";
 import { testPostgresConnection } from "./config/ConfigPostgres.js";
-import { testSQLServerConnection } from "./config/ConfigSQLs.js";
 
 // Configurar dotenv para variables de entorno
 dotenv.config();
@@ -28,7 +28,6 @@ const testDatabaseConnections = async () => {
   
   await testOracleConnection();
   await testPostgresConnection();
-  await testSQLServerConnection();
   
   console.log("✅ Pruebas de conexión completadas");
 };
@@ -45,6 +44,7 @@ app.get("/test-connections", async (req, res) => {
 
 app.use("/register", registerRoutes); // Agregar la ruta de registro
 app.use("/auth", loginRoutes); // Agregar la ruta de autenticación
+app.use('/mysql', mysqlRoute); // Agregar la ruta de productos
 
 // Configuración del puerto y arranque del servidor
 const PORT = process.env.PORT || 5000;
