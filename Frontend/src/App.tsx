@@ -35,12 +35,29 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const userData = getUserData();
-    setUser(userData);
-    setIsLoading(false);
+    try {
+      const userData = getUserData();
+      // Verificar que el objeto usuario tenga la estructura esperada
+      if (!userData || typeof userData !== 'object' || !userData.rol) {
+        console.log("Datos de usuario inválidos o incompletos");
+        localStorage.removeItem("user");
+        setUser(null);
+      } else {
+        setUser(userData);
+      }
+    } catch (e) {
+      console.error("Error al obtener datos del usuario:", e);
+      localStorage.removeItem("user");
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
     
-    const handleStorageChange = () => {
-      setUser(getUserData());
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === "user" || event.key === null) {
+        const newUserData = getUserData();
+        setUser(newUserData);
+      }
     };
 
     window.addEventListener("storage", handleStorageChange);

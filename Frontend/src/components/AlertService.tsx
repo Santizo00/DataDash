@@ -14,6 +14,19 @@ export const showSuccessAlert = (title: string, message: string) => {
 };
 
 /**
+ * Muestra una alerta de éxito personalizada con HTML.
+ */
+export const showCustomSuccessAlert = (title: string, htmlMessage: string) => {
+  Swal.fire({
+    title: title,
+    html: htmlMessage,
+    icon: "success",
+    confirmButtonText: "Aceptar",
+    confirmButtonColor: "#007bff",
+  });
+};
+
+/**
  * Muestra una alerta de error.
  */
 export const showErrorAlert = (title: string, message: string) => {
