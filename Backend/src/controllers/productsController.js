@@ -196,3 +196,118 @@ export const obtenerProductos = async (req, res) => {
     }
   };
   
+  export const insertarProducto = async (req, res) => {
+    const { CodigoProducto, Descripcion, Existencia, Costo, Precio, Margen, Id_Base } = req.body;
+  
+    const basesExito = [];
+    const basesError = [];
+  
+    const query = `INSERT INTO Products (CodigoProducto, Descripcion, Existencia, Costo, Precio, Margen, UltimaActualizacion, Activo, BaseDatos) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1, ?)`;
+    const params = [CodigoProducto, Descripcion, Existencia, Costo, Precio, Margen];
+  
+    const tryInsert = async (fn, nombre) => {
+      try {
+        await fn();
+        basesExito.push(nombre);
+      } catch (err) {
+        console.error(`${nombre}:`, err.message);
+        basesError.push(`${nombre}: ${err.message}`);
+      }
+    };
+  
+    try {
+      switch (Id_Base) {
+        case 1: // Insertar en todas
+          await Promise.all([
+            tryInsert(async () => {
+              const conn = await poolMySQL.getConnection();
+              await conn.execute(query, [...params, 2]);
+              conn.release();
+            }, "MySQL"),
+  
+            tryInsert(async () => {
+              await poolSQLServer.connect();
+              await poolSQLServer.request()
+                .input("CodigoProducto", CodigoProducto)
+                .input("Descripcion", Descripcion)
+                .input("Existencia", Existencia)
+                .input("Costo", Costo)
+                .input("Precio", Precio)
+                .input("Margen", Margen)
+                .query(`INSERT INTO Products (CodigoProducto, Descripcion, Existencia, Costo, Precio, Margen, UltimaActualizacion, Activo, BaseDatos) VALUES (@CodigoProducto, @Descripcion, @Existencia, @Costo, @Precio, @Margen, GETDATE(), 1, 3)`);
+            }, "SQL Server"),
+  
+            tryInsert(async () => {
+              const client = await poolPostgres.connect();
+              await client.query(`INSERT INTO Products (codigoproducto, descripcion, existencia, costo, precio, margen, ultimaactualizacion, activo, basedatos) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 1, 4)`, params);
+              client.release();
+            }, "PostgreSQL"),
+  
+            tryInsert(async () => {
+              const conn = await poolOracle.getConnection();
+              await conn.execute(`INSERT INTO Products (CodigoProducto, Descripcion, Existencia, Costo, Precio, Margen, UltimaActualizacion, Activo, BaseDatos) VALUES (:1, :2, :3, :4, :5, :6, SYSDATE, 1, 5)`, params, { autoCommit: true });
+              await conn.close();
+            }, "Oracle"),
+          ]);
+          break;
+  
+        case 2:
+          await tryInsert(async () => {
+            const conn = await poolMySQL.getConnection();
+            await conn.execute(query, [...params, 2]);
+            conn.release();
+          }, "MySQL");
+          break;
+  
+        case 3:
+          await tryInsert(async () => {
+            await poolSQLServer.connect();
+            await poolSQLServer.request()
+              .input("CodigoProducto", CodigoProducto)
+              .input("Descripcion", Descripcion)
+              .input("Existencia", Existencia)
+              .input("Costo", Costo)
+              .input("Precio", Precio)
+              .input("Margen", Margen)
+              .query(`INSERT INTO Products (CodigoProducto, Descripcion, Existencia, Costo, Precio, Margen, UltimaActualizacion, Activo, BaseDatos) VALUES (@CodigoProducto, @Descripcion, @Existencia, @Costo, @Precio, @Margen, GETDATE(), 1, 3)`);
+          }, "SQL Server");
+          break;
+  
+        case 4:
+          await tryInsert(async () => {
+            const client = await poolPostgres.connect();
+            await client.query(`INSERT INTO Products (codigoproducto, descripcion, existencia, costo, precio, margen, ultimaactualizacion, activo, basedatos) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 1, 4)`, params);
+            client.release();
+          }, "PostgreSQL");
+          break;
+  
+        case 5:
+          await tryInsert(async () => {
+            const conn = await poolOracle.getConnection();
+            await conn.execute(`INSERT INTO Products (CodigoProducto, Descripcion, Existencia, Costo, Precio, Margen, UltimaActualizacion, Activo, BaseDatos) VALUES (:1, :2, :3, :4, :5, :6, SYSDATE, 1, 5)`, params, { autoCommit: true });
+            await conn.close();
+          }, "Oracle");
+          break;
+  
+        default:
+          return res.status(400).json({ exito: false, mensaje: 'Id_Base inválido' });
+      }
+  
+      return res.status(200).json({
+        exito: true,
+        mensaje: 'Producto insertado correctamente.',
+        basesExito,
+        basesError
+      });
+  
+    } catch (error) {
+      console.error('Error general:', error);
+      return res.status(500).json({
+        exito: false,
+        mensaje: 'Error al insertar producto',
+        error: error.message
+      });
+    }
+  };
+  
+  

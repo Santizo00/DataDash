@@ -159,11 +159,57 @@ const Products: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    showWarningAlert("Funcionalidad no implementada", "La creación y actualización de productos se implementará en una fase posterior");
-    setModalAbierto(false);
+    showLoading("Guardando producto...");
+  
+    try {
+      const response = await fetch(`${API_URL}/products/insert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
+      hideLoading();
+  
+      if (data.exito) {
+        setModalAbierto(false);
+      
+        const basesInsertadas = (data.basesExito || []).map((b: string) => `✔️ ${b}`).join("<br>");
+        const basesFallidas = (data.basesError || []).map((e: string) => `❌ ${e}`).join("<br>");
+      
+        let mensaje = `Producto insertado correctamente en:<br>${basesInsertadas}`;
+        if (basesFallidas) {
+          mensaje += `<br><br><strong>Errores al insertar:</strong><br>${basesFallidas}`;
+        }
+      
+        showCustomSuccessAlert("Éxito", mensaje);
+      
+        const nuevasBases = formData.Id_Base === 1 ? (data.basesExito || []) : [
+          basesDatos.find(b => b.Id_Base === formData.Id_Base)?.BaseDatos || "Desconocido"
+        ];
+        
+        const nuevosProductos = nuevasBases.map((nombreBase: string) => ({
+          ...formData,
+          Margen: calcularPorcentajeMargen(formData.Costo, formData.Precio),
+          Id_Producto: Math.floor(Math.random() * 1000000),
+          UltimaActualizacion: new Date().toISOString().slice(0, 19).replace("T", " "),
+          Activo: 1,
+          BaseDatos: nombreBase
+        }));
+        
+        setProductos(prev => [...prev, ...nuevosProductos]);
+        setProductosCompletos(prev => [...prev, ...nuevosProductos]);
+        
+      } else {
+        showErrorAlert("Error", data.mensaje);
+      }
+    } catch (error) {
+      hideLoading();
+      console.error("Error guardando producto:", error);
+      showErrorAlert("Error", "No se pudo guardar el producto.");
+    }
   };
 
-  const handleEliminar = async (id: number) => {
+  const handleEliminar = async (_id: number) => {
     showWarningAlert("Funcionalidad no implementada", "La eliminación de productos se implementará en una fase posterior");
   };
 
