@@ -147,3 +147,35 @@ export const showConfirmWithCheckboxAlert = (title: string, message: string, che
     }
   });
 };
+
+/**
+ * Muestra una alerta de confirmación con botones Confirmar/Cancelar
+ * @param title Título de la alerta
+ * @param message Mensaje HTML de la alerta
+ * @param onConfirm Función a ejecutar si el usuario confirma
+ * @param onCancel Función opcional a ejecutar si el usuario cancela
+ */
+export const showConfirmAlert = (
+  title: string,
+  message: string,
+  onConfirm: () => void,
+  onCancel?: () => void
+) => {
+  Swal.fire({
+    title: title,
+    html: message,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#3085d6",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Sí, confirmar",
+    cancelButtonText: "Cancelar",
+    reverseButtons: true
+  }).then((result) => {
+    if (result.isConfirmed) {
+      onConfirm();
+    } else if (onCancel) {
+      onCancel();
+    }
+  });
+};

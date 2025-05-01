@@ -14,13 +14,15 @@ DataDash/
 │   │   ├── controllers/  → Lógica para manejo de rutas y peticiones HTTP
 │   │   │   ├── loginController.js
 │   │   │   ├── registerController.js
-│   │   │   └── productsController.js
+│   │   │   ├── productsController.js
+│   │   │   └── rolesController.js   
 │   │   ├── middleware/   → Manejo de errores u otros middlewares
 │   │   │   └── errorHandler.js
 │   │   ├── routes/       → Definición de rutas REST
 │   │   │   ├── loginRoute.js
 │   │   │   ├── registerRoute.js
-│   │   │   └── productsRoute.js
+│   │   │   ├── productsRoute.js
+│   │   │   └── rolesRoute.js    
 │   │   ├── app.js        → Configuración global de la app Express
 │   │   └── server.js     → Arranque del servidor
 │   ├── .env              → Variables de entorno (puertos, credenciales)
@@ -235,8 +237,59 @@ La función handleCambiarEstado maneja:
 - Ofrece feedback detallado del resultado
 - Mantiene consistencia visual en tiempo real
 
-## ✅ Conclusión
-La funcionalidad completa de productos multi-DB (inserción, actualización, activación/desactivación) está implementada con soporte para todos los casos de uso comunes. El sistema es robusto visualmente y funcionalmente, mostrando errores detallados y resultados por base de datos involucradas.
+🧠 Módulo de Roles
+🔍 Descripción
+Este módulo permite la gestión completa de roles en el sistema, implementado como un CRUD (Crear, Leer, Actualizar, Eliminar) básico. Gestiona los roles de usuario a nivel de sistema, conectándose únicamente a la base de datos MySQL donde se almacena la tabla de roles.
+📋 Estructura de datos
+La tabla de roles tiene una estructura sencilla:
 
-Este módulo convierte a DataDash en una plataforma ideal para entornos empresariales con múltiplos almacenes o servidores SQL distribuidos.
+- id_rol (INT): Identificador único del rol
+- nombre_rol (VARCHAR[50]): Nombre descriptivo del rol
+- descripcion (VARCHAR[255]): Descripción detallada de las funciones del rol
+
+🛠️ Funcionalidades implementadas
+Backend (rolesController.js)
+1. Obtener roles: Endpoint GET para listar todos los roles disponibles
+- Ruta: /roles/
+- Realiza ordenamiento por ID del rol
+
+2. Crear rol: Endpoint POST para crear nuevos roles
+- Ruta: /roles/insert
+- Validación para evitar nombres duplicados
+- Manejo adecuado de campos obligatorios
+
+3. Actualizar rol: Endpoint PUT para modificar roles existentes
+- Ruta: /roles/update:id
+- Verificación de existencia del rol
+- Validación para evitar colisiones de nombres
+
+4. Eliminar rol: Endpoint DELETE para eliminar roles
+- Ruta: /roles/delete:id
+- Validación de existencia del rol
+- Protección contra eliminación de roles en uso (restricción de clave foránea)
+
+Frontend (Roles.tsx)
+
+1. Listado de roles:
+- Tabla con paginación usando el componente Table.tsx
+- Columnas para ID, nombre y descripción
+
+2. Filtrado:
+- Búsqueda por nombre o descripción
+
+3. Formulario de edición/creación:
+- Modal para crear o editar roles
+- Validación de campos obligatorios
+- Retroalimentación visual sobre éxito/error
+
+4. Eliminación:
+- Confirmación antes de eliminar
+- Manejo de errores si el rol está en uso
+
+💼 Caso de uso
+Este módulo está diseñado para permitir a los administradores del sistema gestionar los diferentes niveles de acceso y permisos disponibles en la aplicación. Los roles creados aquí serán posteriormente asignados a usuarios, determinando qué funcionalidades pueden acceder y qué operaciones pueden realizar.
+
+
+## ✅ Conclusión
+La funcionalidad completa de productos multi-DB (inserción, actualización, activación/desactivación) y gestión de roles está implementada con soporte para todos los casos de uso comunes. El sistema es robusto visualmente y funcionalmente, mostrando errores detallados y resultados adecuados al usuario.
 

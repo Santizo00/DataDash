@@ -89,7 +89,7 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
         </h2>
         <form onSubmit={onSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Código</label>
+            <label className="block text-gray-700 text-sm font-bold mb-2">Código</label>
             <input
               type="text"
               name="CodigoProducto"
@@ -101,7 +101,7 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
             />
           </div>
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Descripción</label>
+            <label className="block text-gray-700 text-sm font-bold mb-2">Descripción</label>
             <input
               type="text"
               name="Descripcion"
@@ -114,7 +114,7 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
           </div>
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-gray-700 mb-2">Existencia</label>
+              <label className="block text-gray-700 text-sm font-bold mb-2">Existencia</label>
               <input
                 type="number"
                 name="Existencia"
@@ -127,7 +127,7 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
               />
             </div>
             <div>
-              <label className="block text-gray-700 mb-2">Costo</label>
+              <label className="block text-gray-700 text-sm font-bold mb-2">Costo</label>
               <input
                 type="number"
                 name="Costo"
@@ -140,7 +140,7 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
               />
             </div>
             <div>
-              <label className="block text-gray-700 mb-2">Precio</label>
+              <label className="block text-gray-700 text-sm font-bold mb-2">Precio</label>
               <input
                 type="number"
                 name="Precio"
@@ -164,7 +164,7 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
           </div>
 
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Base de Datos</label>
+            <label className="block text-gray-700 text-sm font-bold mb-2">Base de Datos</label>
             <select
               name="Id_Base"
               value={formData.Id_Base}
