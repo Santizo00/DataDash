@@ -121,3 +121,29 @@ export const showCustomWarningAlert = (
     return result;
   });
 };
+
+
+/**
+ *Función para mostrar alerta de confirmación con checkboxes
+ */
+export const showConfirmWithCheckboxAlert = (title: string, message: string, checkboxes: { id: string, label: string }[]) => {
+  return Swal.fire({
+    title,
+    html: message,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Confirmar',
+    cancelButtonText: 'Cancelar',
+    reverseButtons: true,
+    input: 'checkbox',
+    inputValue: 0,
+    inputPlaceholder: checkboxes[0].label,
+    preConfirm: (value) => {
+      const result: Record<string, boolean> = {};
+      result[checkboxes[0].id] = value;
+      return result;
+    }
+  });
+};

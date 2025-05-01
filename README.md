@@ -184,8 +184,59 @@ Se muestra advertencia al usuario indicando que el producto se actualiza/inserta
 
 ---
 
+🔄 Activación/Desactivación de Productos
+🔄 Flujo de Activación/Desactivación
+
+1. El usuario hace clic en el botón de activar/desactivar en la columna de acciones.
+2. Se muestra una alerta de confirmación con un checkbox para elegir el alcance:
+
+- Cambiar estado solo en la base actual
+- Cambiar estado en todas las bases donde exista el producto
+
+3. Se realiza un PUT a /products/cambiar-estado, enviando el código, estado actual y alcance.
+4. El backend ejecuta la actualización del campo Activo en las bases seleccionadas.
+5. El frontend actualiza la interfaz de manera dinámica y muestra un resumen detallado.
+
+⚙️ Lógica en Backend
+1. La ruta /products/cambiar-estado procesa:
+- El código del producto a modificar
+- El estado actual (para invertirlo)
+- La opción "todasLasBases" (booleano)
+
+2. Para cada base aplicable:
+- Ejecuta una actualización SQL del campo Activo
+- Lleva registro de éxitos y errores por base
+- Retorna un resumen detallado al cliente
+
+🎨 Visualización en Frontend
+Productos con diferentes estados se muestran con indicadores visuales:
+- Verde para activos
+- Rojo para inactivos
+
+Los botones de acción cambian según el estado:
+- Botón de "Desactivar" (rojo) para productos activos
+- Botón de "Activar" (verde) para productos inactivos
+
+Filtro dropdown para mostrar:
+- Todos los productos
+- Solo productos activos
+- Solo productos inactivos
+
+🔍 Implementación Técnica
+La función handleCambiarEstado maneja:
+- Lógica de confirmación con checkbox
+- Comunicación con el backend
+- Actualización del estado local
+- Procesamiento del resumen de bases
+
+📊 Beneficios
+- Facilita la gestión de inventario sin eliminación física
+- Permite control granular por base o global
+- Ofrece feedback detallado del resultado
+- Mantiene consistencia visual en tiempo real
+
 ## ✅ Conclusión
-La funcionalidad de inserción y actualización multi-DB está implementada con soporte completo para los 3 casos comunes. El sistema es robusto visualmente y funcionalmente, mostrando errores detallados y resultados por base de datos involucrados.
+La funcionalidad completa de productos multi-DB (inserción, actualización, activación/desactivación) está implementada con soporte para todos los casos de uso comunes. El sistema es robusto visualmente y funcionalmente, mostrando errores detallados y resultados por base de datos involucradas.
 
 Este módulo convierte a DataDash en una plataforma ideal para entornos empresariales con múltiplos almacenes o servidores SQL distribuidos.
 

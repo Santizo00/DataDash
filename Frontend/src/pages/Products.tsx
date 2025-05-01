@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Search, CirclePlus, Trash2, Edit } from "lucide-react";
-import { showCustomSuccessAlert, showErrorAlert, showWarningAlert } from "../components/AlertService";
+import { Search, CirclePlus, CircleX, Edit } from "lucide-react";
+import { showCustomSuccessAlert, showErrorAlert, showConfirmWithCheckboxAlert } from "../components/AlertService";
 import { hideLoading, showLoading } from "../components/loadingService";
 import { Table } from "../components/Table";
 import { ModalProduct } from "../components/ModalProduct";
@@ -20,6 +20,7 @@ export interface Producto {
   Activo: number;
   BaseDatos: string;
   Id_Base: number;
+  EstadoDescripcion?: string;
 }
 
 export interface FormDataType {
@@ -71,6 +72,7 @@ const Products: React.FC = () => {
   });
   const [filtroBaseDatos, setFiltroBaseDatos] = useState<number | "">("");
   const [baseOriginal, setBaseOriginal] = useState<number | null>(null);
+  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
 
   useEffect(() => {
     cargarProductos();
@@ -79,7 +81,7 @@ const Products: React.FC = () => {
 
   useEffect(() => {
     filtrarProductos();
-  }, [busqueda, filtroBaseDatos]);
+  }, [busqueda, filtroBaseDatos, filtroEstado]);
 
   const cargarBasesDatos = async () => {
     try {
@@ -146,10 +148,23 @@ const Products: React.FC = () => {
   const filtrarProductos = () => {
     const termino = busqueda.toLowerCase().trim();
     const filtrados = productosCompletos.filter((producto) => {
-      const coincideTexto = producto.CodigoProducto.toLowerCase().includes(termino) || producto.Descripcion.toLowerCase().includes(termino);
-      const coincideBase = filtroBaseDatos === 1 || filtroBaseDatos === "" || producto.Id_Base === filtroBaseDatos;
-      return coincideTexto && coincideBase;
+      // Filtro por texto (código o descripción)
+      const coincideTexto = producto.CodigoProducto.toLowerCase().includes(termino) || 
+                            producto.Descripcion.toLowerCase().includes(termino);
+      
+      // Filtro por base de datos
+      const coincideBase = filtroBaseDatos === 1 || 
+                           filtroBaseDatos === "" || 
+                           producto.Id_Base === filtroBaseDatos;
+      
+      // Filtro por estado (activo/inactivo)
+      const coincideEstado = filtroEstado === "todos" || 
+                            (filtroEstado === "activos" && producto.Activo === 1) || 
+                            (filtroEstado === "inactivos" && producto.Activo === 2);
+      
+      return coincideTexto && coincideBase && coincideEstado;
     });
+    
     setProductos(filtrados);
   };
 
@@ -338,9 +353,109 @@ const Products: React.FC = () => {
     }
   };
 
-
-  const handleEliminar = async (_id: number) => {
-    showWarningAlert("Funcionalidad no implementada", "La eliminación de productos se implementará en una fase posterior");
+  const handleCambiarEstado = async (producto: Producto) => {
+    const accion = producto.Activo === 1 ? "desactivar" : "activar";
+    
+    // Mostrar alerta con opciones
+    const { isConfirmed, value } = await showConfirmWithCheckboxAlert(
+      `${accion.charAt(0).toUpperCase() + accion.slice(1)} Producto`,
+      `¿Está seguro que desea ${accion} el producto <strong>${producto.CodigoProducto}</strong>?`,
+      [
+        {
+          id: 'todasLasBases',
+          label: 'Aplicar cambio en todas las bases de datos donde exista este producto'
+        }
+      ]
+    );
+    
+    if (!isConfirmed) return;
+    
+    const todasLasBases = value && value.todasLasBases;
+    
+    showLoading(`${accion.charAt(0).toUpperCase() + accion.slice(1)}ando producto...`);
+    
+    try {
+      const response = await fetch(`${API_URL}/products/cambiar-estado`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          CodigoProducto: producto.CodigoProducto,
+          Activo: producto.Activo,
+          Id_Base: producto.Id_Base,
+          todasLasBases
+        })
+      });
+      
+      const data = await response.json();
+      hideLoading();
+      
+      if (data.exito) {
+        const basesActualizadas = (data.basesExito || []).map((b: string) => `✔️ ${b}`).join("<br>");
+        const basesFallidas = (data.basesError || []).map((e: string) => `❌ ${e}`).join("<br>");
+        
+        let mensaje = `Producto ${accion}do correctamente en:<br>${basesActualizadas}`;
+        
+        if (basesFallidas) {
+          mensaje += `<br><br><strong>Errores:</strong><br>${basesFallidas}`;
+        }
+        
+        showCustomSuccessAlert("Éxito", mensaje);
+        
+        // Actualizar estado local de los productos
+        const nuevoEstado = data.nuevoEstado;
+        const nuevoEstadoDesc = nuevoEstado === 1 ? 'Activo' : 'Inactivo';
+        
+        // Si se actualizó en todas las bases, actualizar todos los productos con ese código
+        if (todasLasBases) {
+          const productosActualizados = productos.map(p => {
+            if (p.CodigoProducto === producto.CodigoProducto && data.basesExito.includes(getNombreBase(p.Id_Base))) {
+              return {
+                ...p,
+                Activo: nuevoEstado,
+                EstadoDescripcion: nuevoEstadoDesc
+              };
+            }
+            return p;
+          });
+          
+          setProductos(productosActualizados);
+          setProductosCompletos(productosActualizados);
+        } 
+        // Si solo se actualizó en una base, actualizar solo ese producto
+        else {
+          const productosActualizados = productos.map(p => {
+            if (p.CodigoProducto === producto.CodigoProducto && p.Id_Base === producto.Id_Base) {
+              return {
+                ...p,
+                Activo: nuevoEstado,
+                EstadoDescripcion: nuevoEstadoDesc
+              };
+            }
+            return p;
+          });
+          
+          setProductos(productosActualizados);
+          setProductosCompletos(productosActualizados);
+        }
+      } else {
+        showErrorAlert("Error", data.mensaje);
+      }
+    } catch (error) {
+      hideLoading();
+      console.error("Error al cambiar estado:", error);
+      showErrorAlert("Error", "No se pudo cambiar el estado del producto.");
+    }
+  };
+  
+  // Función auxiliar para obtener el nombre de la base a partir del Id_Base
+  const getNombreBase = (idBase: number): string => {
+    switch (idBase) {
+      case 2: return 'MySQL';
+      case 3: return 'SQL Server';
+      case 4: return 'PostgreSQL';
+      case 5: return 'Oracle';
+      default: return 'Desconocido';
+    }
   };
 
   const abrirEditarModal = (producto: Producto) => {
@@ -366,6 +481,23 @@ const Products: React.FC = () => {
     { header: "Precio", accessorKey: "Precio", cell: info => `Q. ${info.getValue()}`, meta: { align: "right" } },
     { header: "Margen", accessorKey: "Margen", cell: info => `${info.getValue()}%`, meta: { align: "right" } },
     {
+      header: "Estado",
+      accessorKey: "EstadoDescripcion",
+      cell: info => {
+        const val = info.getValue<string>();
+        const esActivo = val === 'Activo' || info.row.original.Activo === 1;
+        const color = esActivo 
+          ? "bg-green-100 text-green-800" 
+          : "bg-red-100 text-red-800";
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${color}`}>
+            {val}
+          </span>
+        );
+      },
+      meta: { align: "center" },
+    },
+    {
       header: "Base Datos",
       accessorKey: "BaseDatos",
       cell: info => {
@@ -390,21 +522,31 @@ const Products: React.FC = () => {
       meta: { align: "center" },
     },
     {
-      header: "Acciones", id: "acciones", meta: { align: "center" },
-      cell: ({ row }) => {
-        const producto = row.original;
+      header: "Acciones",
+      accessorKey: "EstadoDescripcion",
+      cell: info => {
+        const producto = info.row.original;
+        const esActivo = producto.Activo === 1;
+        
         return (
-          <div className="flex justify-center space-x-2">
+          <div className="flex items-center space-x-2">
             <button onClick={() => abrirEditarModal(producto)} className="p-2 rounded bg-orange-400 text-white hover:bg-orange-500" title="Editar producto">
               <Edit size={18} />
             </button>
-            <button onClick={() => handleEliminar(producto.Id_Producto)} className="p-2 rounded bg-red-500 text-white hover:bg-red-600" title="Eliminar producto">
-              <Trash2 size={18} />
+
+            <button 
+              onClick={() => handleCambiarEstado(producto)} 
+              className={`p-2 rounded  ${esActivo ? "bg-red-500" : "bg-green-500"} text-white`}
+              title={esActivo ? "Desactivar" : "Activar"}
+            >
+              {esActivo ? <CircleX size={18} /> : <CirclePlus size={18} />}
             </button>
           </div>
         );
-      }
-    }
+      },
+      meta: { align: "center" },
+    },
+    
   ];
 
   return (
@@ -412,19 +554,51 @@ const Products: React.FC = () => {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Productos (Multi-DB)</h1>
       <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
         <div className="relative flex-1 min-w-[250px]">
-          <input type="text" placeholder="Buscar por código o descripción..." className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white text-black placeholder-gray-500" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          <input 
+            type="text" 
+            placeholder="Buscar por código o descripción..." 
+            className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white text-black placeholder-gray-500" 
+            value={busqueda} 
+            onChange={(e) => setBusqueda(e.target.value)} 
+          />
           <Search className="absolute left-3 top-3 text-gray-400" />
         </div>
-        <div className="min-w-[200px]">
-          <select value={filtroBaseDatos} onChange={(e) => setFiltroBaseDatos(e.target.value === "" ? "" : parseInt(e.target.value))} className="px-3 py-2 border rounded-lg bg-white text-black w-full">
-            {basesDatos.map(base => <option key={base.Id_Base} value={base.Id_Base}>{base.BaseDatos}</option>)}
-          </select>
+        <div className="flex flex-wrap gap-4">
+          {/* Selector de Base de Datos */}
+          <div className="min-w-[200px]">
+            <select 
+              value={filtroBaseDatos} 
+              onChange={(e) => setFiltroBaseDatos(e.target.value === "" ? "" : parseInt(e.target.value))} 
+              className="px-3 py-2 border rounded-lg bg-white text-black w-full"
+            >
+              {basesDatos.map(base => (
+                <option key={base.Id_Base} value={base.Id_Base}>{base.BaseDatos}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Selector de Estado (Activo/Inactivo) */}
+          <div className="min-w-[150px]">
+            <select 
+              value={filtroEstado} 
+              onChange={(e) => setFiltroEstado(e.target.value)} 
+              className="px-3 py-2 border rounded-lg bg-white text-black w-full"
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="activos">Activos</option>
+              <option value="inactivos">Inactivos</option>
+            </select>
+          </div>
         </div>
-        <button onClick={() => {
-          setProductoEditando(null);
-          setFormData({ CodigoProducto: "", Descripcion: "", Existencia: 0, Costo: 0, Precio: 0, Id_Base: 1 });
-          setModalAbierto(true);
-        }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        
+        <button 
+          onClick={() => {
+            setProductoEditando(null);
+            setFormData({ CodigoProducto: "", Descripcion: "", Existencia: 0, Costo: 0, Precio: 0, Id_Base: 1 });
+            setModalAbierto(true);
+          }} 
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <CirclePlus className="mr-2" /> Nuevo Producto
         </button>
       </div>
