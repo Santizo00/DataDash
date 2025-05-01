@@ -15,14 +15,16 @@ DataDash/
 │   │   │   ├── loginController.js
 │   │   │   ├── registerController.js
 │   │   │   ├── productsController.js
-│   │   │   └── rolesController.js   
+│   │   │   ├── rolesController.js
+│   │   │   └── usuariosController.js 
 │   │   ├── middleware/   → Manejo de errores u otros middlewares
 │   │   │   └── errorHandler.js
 │   │   ├── routes/       → Definición de rutas REST
 │   │   │   ├── loginRoute.js
 │   │   │   ├── registerRoute.js
 │   │   │   ├── productsRoute.js
-│   │   │   └── rolesRoute.js    
+│   │   │   ├── rolesRoute.js
+│   │   │   └── usuariosRoute.js 
 │   │   ├── app.js        → Configuración global de la app Express
 │   │   └── server.js     → Arranque del servidor
 │   ├── .env              → Variables de entorno (puertos, credenciales)
@@ -40,10 +42,10 @@ DataDash/
 │   │   │   ├── Layout.tsx
 │   │   │   └── ProtectedRoute.tsx
 │   │   ├── pages/        → Vistas principales del sistema
-│   │   │   ├── Products.tsx         → Vista principal con tabla y modal
-│   │   │   ├── Users.tsx
-│   │   │   ├── Roles.tsx
-│   │   │   ├── Login.tsx
+│   │   │   ├── Products.tsx       
+│   │   │   ├── Users.tsx           
+│   │   │   ├── Roles.tsx            
+│   │   │   ├── Login.tsx          
 │   │   │   └── Home.tsx
 │   │   ├── App.tsx       → Configuración de rutas
 │   │   ├── main.tsx      → Punto de entrada de la app React
@@ -63,56 +65,6 @@ Dentro de Backend/src/config/tienes archivos dedicados para conectarte a cuatro 
 - ConfigOracle.js → Usa oracledb para conectar con Oracle.
 
 Cada archivo exporta una instalación de conexión que luego se puede usar para hacer query() o ejecutar() dependiendo del motor.
-
-🧠 Funcionamiento del Módulo de Productos
-🎛️ Componente: Productos.tsx
-El frontend carga los productos haciendo una sola película a /products/, que los obtiene desde todas las bases configuradas.
-
-- Se usa un filtro (select) para cambiar entre bases o mostrar "Todas las Bases".
-- Se integra una tabla (Table.tsx) con paginación y ordenamiento.
-- Se abre un modal (ModalProduct.tsx) para agregar/editar productos.
-- El formulario incluye un selector de base de datos (Id_Base) que determina hacia qué base o bases se inserta el nuevo producto.
-
-⚙️ Backend: productsController.js
-En la función de inserción (pendiente de implementar), se evalúa el Id_Base recibido.
-
-Se usa un switch-case:
-
-1 → Inserta en todas las bases a la vez (con manejo de errores independientes).
-2 → Inserta en MySQL.
-3 → Inserta en SQL Server.
-4 → Inserta en PostgreSQL.
-5 → Inserta en Oracle.
-
-🛠️ Tecnologías Usadas
-Backend:
-Node.js + Express
-Conectores SQL:
-- mysql2
-- mssql
-- pg
-- oracledb
-
-dotenv para manejo de entorno
-
-Arquitectura MVC simplificada
-
-Frontend:
-React + TypeScript + Vite
-
-@tanstack/react-table para la tabla dinámica
-
-lucide-react para íconos
-
-Tailwind CSS para estilos
-
-React Hooks (useState, useEffect)
-
-Comunicación con backend vía fetch
-
-🔍  ¿Qué hace este proyecto?
-DataDash es un sistema de gestión de productos que permiten mostrar, buscar, insertar y actualizar productos en múltiplos bases de datos desde una sola interfaz unificada. Soporta integración con cuatro motores SQL distintos y facilita el análisis de inventarios centralizados.
-
 
 # 🧠 Módulo de Productos Multi-DB
 
@@ -166,130 +118,138 @@ La función `handleSubmit` distingue entre inserción y actualización basándos
 - Se inserta si no existe.
 - No se elimina el producto de la base original.
 
-En el frontend:
-- Se actualizan todos los productos existentes con el mismo código.
-- Se agregan nuevos productos en las bases donde no existe previamente.
-
-
-Se muestra advertencia al usuario indicando que el producto se actualiza/insertará en todas las bases sin eliminación.
-
-### Mejores Implementadas
-- Corrección de tipos de datos para evitar errores en las operaciones SQL.
-- Manejo explícito de conversación de tipos en frontend y backend.
-- Mensajes de publicidad específicos para cada caso de actualización.
-- Manejo visual correcto de los 3 casos de actualización con actualización dinámica de la tabla.
-- Prevención de pérdida de datos en el caso "Todas las Bases".
-
-### 📦 Resultado UI
-- Se muestra un `SweetAlert` con resumen de bases actualizadas y errores.
-- La tabla se actualiza dinámicamente sin necesidad de recargar.
-
 ---
 
-🔄 Activación/Desactivación de Productos
-🔄 Flujo de Activación/Desactivación
+## 🔄 Activación/Desactivación de Productos
 
+### 🔄 Flujo de Activación/Desactivación
 1. El usuario hace clic en el botón de activar/desactivar en la columna de acciones.
 2. Se muestra una alerta de confirmación con un checkbox para elegir el alcance:
-
-- Cambiar estado solo en la base actual
-- Cambiar estado en todas las bases donde exista el producto
-
+   - Cambiar estado solo en la base actual
+   - Cambiar estado en todas las bases donde exista el producto
 3. Se realiza un PUT a /products/cambiar-estado, enviando el código, estado actual y alcance.
 4. El backend ejecuta la actualización del campo Activo en las bases seleccionadas.
 5. El frontend actualiza la interfaz de manera dinámica y muestra un resumen detallado.
 
-⚙️ Lógica en Backend
-1. La ruta /products/cambiar-estado procesa:
-- El código del producto a modificar
-- El estado actual (para invertirlo)
-- La opción "todasLasBases" (booleano)
+### 🎨 Visualización en Frontend
+- Productos con diferentes estados se muestran con indicadores visuales (verde/rojo)
+- Los botones de acción cambian según el estado actual
+- Filtro dropdown para mostrar todos los productos, solo activos o solo inactivos
 
-2. Para cada base aplicable:
-- Ejecuta una actualización SQL del campo Activo
-- Lleva registro de éxitos y errores por base
-- Retorna un resumen detallado al cliente
+---
 
-🎨 Visualización en Frontend
-Productos con diferentes estados se muestran con indicadores visuales:
-- Verde para activos
-- Rojo para inactivos
+# 🧠 Módulo de Roles
 
-Los botones de acción cambian según el estado:
-- Botón de "Desactivar" (rojo) para productos activos
-- Botón de "Activar" (verde) para productos inactivos
-
-Filtro dropdown para mostrar:
-- Todos los productos
-- Solo productos activos
-- Solo productos inactivos
-
-🔍 Implementación Técnica
-La función handleCambiarEstado maneja:
-- Lógica de confirmación con checkbox
-- Comunicación con el backend
-- Actualización del estado local
-- Procesamiento del resumen de bases
-
-📊 Beneficios
-- Facilita la gestión de inventario sin eliminación física
-- Permite control granular por base o global
-- Ofrece feedback detallado del resultado
-- Mantiene consistencia visual en tiempo real
-
-🧠 Módulo de Roles
-🔍 Descripción
+## 🔍 Descripción
 Este módulo permite la gestión completa de roles en el sistema, implementado como un CRUD (Crear, Leer, Actualizar, Eliminar) básico. Gestiona los roles de usuario a nivel de sistema, conectándose únicamente a la base de datos MySQL donde se almacena la tabla de roles.
-📋 Estructura de datos
+
+## 📋 Estructura de datos
 La tabla de roles tiene una estructura sencilla:
+- `id_rol` (INT): Identificador único del rol
+- `nombre_rol` (VARCHAR[50]): Nombre descriptivo del rol
+- `descripcion` (VARCHAR[255]): Descripción detallada de las funciones del rol
 
-- id_rol (INT): Identificador único del rol
-- nombre_rol (VARCHAR[50]): Nombre descriptivo del rol
-- descripcion (VARCHAR[255]): Descripción detallada de las funciones del rol
+## 🛠️ Funcionalidades implementadas
 
-🛠️ Funcionalidades implementadas
-Backend (rolesController.js)
-1. Obtener roles: Endpoint GET para listar todos los roles disponibles
-- Ruta: /roles/
-- Realiza ordenamiento por ID del rol
+### Backend (rolesController.js)
+1. **Obtener roles**: Endpoint GET para listar todos los roles disponibles
+   - Ruta: `/roles/`
+   - Realiza ordenamiento por ID del rol
+   
+2. **Crear rol**: Endpoint POST para crear nuevos roles
+   - Ruta: `/roles/insert`
+   - Validación para evitar nombres duplicados
+   
+3. **Actualizar rol**: Endpoint PUT para modificar roles existentes
+   - Ruta: `/roles/update:id`
+   - Verificación de existencia del rol
+   
+4. **Eliminar rol**: Endpoint DELETE para eliminar roles
+   - Ruta: `/roles/delete:id`
+   - Protección contra eliminación de roles en uso
 
-2. Crear rol: Endpoint POST para crear nuevos roles
-- Ruta: /roles/insert
-- Validación para evitar nombres duplicados
-- Manejo adecuado de campos obligatorios
+### Frontend (Roles.tsx)
+1. **Listado de roles**: Tabla con paginación y ordenamiento
+2. **Filtrado**: Búsqueda por nombre o descripción
+3. **Formulario de edición/creación**: Modal con validación de campos
+4. **Eliminación**: Confirmación antes de eliminar
 
-3. Actualizar rol: Endpoint PUT para modificar roles existentes
-- Ruta: /roles/update:id
-- Verificación de existencia del rol
-- Validación para evitar colisiones de nombres
+---
 
-4. Eliminar rol: Endpoint DELETE para eliminar roles
-- Ruta: /roles/delete:id
-- Validación de existencia del rol
-- Protección contra eliminación de roles en uso (restricción de clave foránea)
+# 🔐 Módulo de Usuarios y Autenticación
 
-Frontend (Roles.tsx)
+## 🔍 Descripción
+Este módulo permite la gestión completa de usuarios y su seguridad, implementando un sistema CRUD completo con características avanzadas de seguridad. Gestiona los usuarios del sistema almacenados en MySQL con soporte para encriptación de datos sensibles y autenticación de dos factores (2FA).
 
-1. Listado de roles:
-- Tabla con paginación usando el componente Table.tsx
-- Columnas para ID, nombre y descripción
+## 📋 Estructura de datos
+La tabla de usuarios tiene la siguiente estructura:
+- `id_usuario` (INT): Identificador único del usuario
+- `nombres` (VARCHAR): Nombres del usuario
+- `apellidos` (VARCHAR): Apellidos del usuario
+- `nombre_usuario` (TEXT): Nombre de usuario encriptado
+- `contrasena` (VARCHAR): Contraseña hasheada con bcrypt
+- `passotp` (TEXT): Secreto OTP encriptado para 2FA
+- `otp_activado` (TINYINT): Estado de activación del 2FA
+- `id_rol` (INT): Rol asignado al usuario
+- `fecha_registro` (TIMESTAMP): Fecha de creación del usuario
 
-2. Filtrado:
-- Búsqueda por nombre o descripción
+## 🔐 Características de Seguridad
+- **Encriptación AES**: Los nombres de usuario y secretos OTP se almacenan encriptados
+- **Hash de contraseñas**: Se utiliza bcrypt para almacenar contraseñas de forma segura
+- **Autenticación de dos factores (2FA)**: Implementación completa con QR y verificación
+- **Flujo de configuración obligatoria de 2FA**: Los usuarios deben configurar 2FA en su primer inicio de sesión
 
-3. Formulario de edición/creación:
-- Modal para crear o editar roles
-- Validación de campos obligatorios
-- Retroalimentación visual sobre éxito/error
+## 🛠️ Funcionalidades implementadas
 
-4. Eliminación:
-- Confirmación antes de eliminar
-- Manejo de errores si el rol está en uso
+### Backend (usuariosController.js)
+1. **Gestión de usuarios**:
+   - CRUD completo de usuarios (obtener, crear, actualizar, eliminar)
+   - Validaciones para prevenir duplicados y manejar datos encriptados
+   - Protección para el usuario administrador principal
 
-💼 Caso de uso
-Este módulo está diseñado para permitir a los administradores del sistema gestionar los diferentes niveles de acceso y permisos disponibles en la aplicación. Los roles creados aquí serán posteriormente asignados a usuarios, determinando qué funcionalidades pueden acceder y qué operaciones pueden realizar.
+2. **Autenticación**:
+   - Verificación segura de credenciales con desencriptado de nombres de usuario
+   - Validación de contraseñas utilizando bcrypt
+   - Flujo completo de verificación OTP para 2FA
+   - Configuración inicial de 2FA para nuevos usuarios
 
+### Frontend
+1. **Usuarios.tsx**:
+   - Tabla completa con filtrado y paginación
+   - Modal para creación/edición de usuarios
+   - Gestión de permisos por roles
+   - Funcionalidad para limpiar la configuración 2FA de usuarios
+
+2. **Login.tsx**:
+   - Interfaz de inicio de sesión con validación de credenciales
+   - Flujo de configuración de 2FA para usuarios nuevos
+   - Verificación de códigos OTP para usuarios con 2FA activado
+   - Generación y visualización de códigos QR para configuración
+
+## 🔄 Flujos de usuario
+1. **Primer inicio de sesión**:
+   - Validación de credenciales
+   - Generación de código QR para configuración de app de autenticación
+   - Verificación de código OTP para activar 2FA
+   - Inicio de sesión completo
+
+2. **Inicio de sesión normal**:
+   - Validación de credenciales
+   - Solicitud y verificación de código OTP
+   - Acceso al sistema
+
+3. **Gestión de usuarios (administrador)**:
+   - Creación de nuevos usuarios (sin configuración 2FA inicial)
+   - Edición de información de usuarios existentes
+   - Posibilidad de limpiar la configuración 2FA cuando sea necesario
+
+## 🔗 Integración con otros módulos
+El módulo de Usuarios y Autenticación se integra con:
+- **Módulo de Roles**: Asignación de permisos basados en roles
+- **Sistema de Protección de Rutas**: Control de acceso basado en autenticación y roles
+- **Módulos de Negocio**: Asignación de operaciones según permisos de usuario
+
+---
 
 ## ✅ Conclusión
-La funcionalidad completa de productos multi-DB (inserción, actualización, activación/desactivación) y gestión de roles está implementada con soporte para todos los casos de uso comunes. El sistema es robusto visualmente y funcionalmente, mostrando errores detallados y resultados adecuados al usuario.
-
+DataDash implementa una aplicación completa y segura para la gestión de productos en múltiples bases de datos, con un sistema robusto de usuarios y roles. La seguridad es prioritaria con características como encriptación de datos sensibles, hash de contraseñas y autenticación de dos factores obligatoria. El sistema ofrece una interfaz intuitiva y proporciona retroalimentación clara al usuario sobre el resultado de todas las operaciones.

@@ -1,6 +1,6 @@
 import express from "express";
 import { check } from "express-validator";
-import { loginUser, verifyOtp } from "../controllers/loginController.js";
+import { loginUser, verifyOtp, activateOtp } from "../controllers/loginController.js";
 
 const router = express.Router();
 
@@ -19,6 +19,18 @@ router.post(
         check("otpCode").isLength({ min: 6, max: 6 }).withMessage("El código debe tener 6 dígitos"),
     ],
     verifyOtp
+);
+
+/**
+ * Ruta para activar la autenticación OTP después de configurarla
+ */
+router.post(
+    "/activate-otp",
+    [
+        check("userId").isNumeric().withMessage("ID de usuario inválido"),
+        check("otpCode").isLength({ min: 6, max: 6 }).withMessage("El código debe tener 6 dígitos"),
+    ],
+    activateOtp
 );
 
 export default router;

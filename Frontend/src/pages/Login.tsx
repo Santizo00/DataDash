@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, Lock, LogIn, Eye, EyeOff, CircleUserRound } from "lucide-react";
 import BackgroundGradient from "../components/BackgroundGradient";
-import { showErrorAlert, showCustomWarningAlert } from "../components/AlertService";
+import { showErrorAlert, showCustomWarningAlert, showCustomSuccessAlert } from "../components/AlertService";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [, setUserId] = useState<number | null>(null);
+  const [_userId, setUserId] = useState<number | null>(null);
 
   const API_URL = import.meta.env.VITE_URL_BACKEND;
 
@@ -25,17 +25,25 @@ const LoginPage: React.FC = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Error en autenticación");
 
-      // Guardar el ID del usuario para usarlo en la verificación OTP
+      // Guardar el ID del usuario para usarlo en la verificación
       setUserId(data.userId);
+
+      // Verificar si el usuario necesita configurar OTP por primera vez
+      if (data.requireOtpSetup) {
+        // Mostrar el modal para configurar OTP
+        showOtpSetupScreen(data.userId, data.otpSecret, data.qrCode, data.user);
+        return;
+      }
 
       // Verificar si el usuario requiere autenticación OTP
       if (data.requiresOtp) {
         // Mostrar el modal para ingresar el código OTP
         showOtpVerification(data.userId);
-      } else {
-        // Si no requiere OTP, procesar el inicio de sesión directamente
-        processLoginSuccess(data);
+        return;
       }
+
+      // Si no requiere OTP, procesar el inicio de sesión directamente
+      processLoginSuccess(data);
 
     } catch (error: any) {
       showErrorAlert("Error en autenticación", error.message || "No se pudo iniciar sesión.");
@@ -47,9 +55,6 @@ const LoginPage: React.FC = () => {
     // Guardar el token JWT
     if (data.token) {
       localStorage.setItem("token", data.token);
-      
-      // Establecer el token como header por defecto para futuras peticiones
-      // Esto se puede hacer desde un interceptor en un servicio centralizado
     }
     
     // Guardar la información del usuario
@@ -58,6 +63,202 @@ const LoginPage: React.FC = () => {
     }
     
     navigate('/dashboard');
+  };
+
+  // Mostrar pantalla de configuración inicial de OTP
+  const showOtpSetupScreen = async (userId: number, otpSecret: string, qrCode: string, userData: any) => {
+    try {
+      // Crear contenedor principal
+      const setupContainer = document.createElement("div");
+      setupContainer.className = "flex flex-col items-center space-y-4";
+      
+      // Título e instrucciones
+      const titleElement = document.createElement("h3");
+      titleElement.className = "text-lg font-bold text-center";
+      titleElement.textContent = "Configuración de autenticación de dos factores";
+      
+      const instructionsElement = document.createElement("p");
+      instructionsElement.className = "text-sm text-center mb-2";
+      instructionsElement.innerHTML = "Para continuar, necesitas configurar la autenticación de dos factores:<br>1. Escanea el código QR con tu aplicación de autenticación<br>2. Ingresa el código de 6 dígitos que genere la aplicación";
+      
+      // Imagen del código QR
+      const qrImage = document.createElement("img");
+      qrImage.src = qrCode;
+      qrImage.alt = "Código QR para autenticación";
+      qrImage.className = "w-48 h-48 mx-auto my-2";
+      
+      // Mostrar el código secreto como alternativa
+      const secretContainer = document.createElement("div");
+      secretContainer.className = "bg-gray-100 p-3 rounded-md w-full max-w-xs mx-auto mb-2";
+      
+      const secretTitle = document.createElement("p");
+      secretTitle.className = "text-xs font-bold text-center";
+      secretTitle.textContent = "Si no puedes escanear el código, ingresa este código en tu aplicación:";
+      
+      const secretValue = document.createElement("p");
+      secretValue.className = "text-sm font-mono text-center break-all mt-1";
+      secretValue.textContent = otpSecret;
+      
+      secretContainer.appendChild(secretTitle);
+      secretContainer.appendChild(secretValue);
+      
+      // Sistema de 6 inputs para el código OTP
+      const otpInputsTitle = document.createElement("p");
+      otpInputsTitle.className = "text-sm font-bold text-center mt-4";
+      otpInputsTitle.textContent = "Ingresa el código de verificación:";
+      
+      const inputContainer = document.createElement("div");
+      inputContainer.className = "flex justify-center space-x-2 mb-2";
+      
+      // Función para manejar la entrada de dígitos (para DOM nativo)
+      const handleInputChange = (index: number) => (e: Event) => {
+        const input = e.target as HTMLInputElement;
+        const value = input.value;
+        
+        // Si es un dígito, avanzar al siguiente input
+        if (/^\d$/.test(value) && index < 5) {
+          const nextInput = document.getElementById(`otp-setup-input-${index + 1}`);
+          if (nextInput) nextInput.focus();
+        }
+      };
+      
+      // Función para manejar teclas especiales (borrar, pegar) (para DOM nativo)
+      const handleKeyDown = (index: number) => (e: KeyboardEvent) => {
+        const input = e.target as HTMLInputElement;
+        
+        // Si presiona Backspace en un input vacío, retroceder al anterior
+        if (e.key === "Backspace" && input.value === "" && index > 0) {
+          const prevInput = document.getElementById(`otp-setup-input-${index - 1}`);
+          if (prevInput) prevInput.focus();
+        }
+        
+        // Si presiona la tecla V con Ctrl (pegar)
+        if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          
+          // Leer del portapapeles
+          navigator.clipboard.readText().then(pastedText => {
+            // Limpiar cualquier carácter no numérico
+            const digits = pastedText.replace(/\D/g, "").slice(0, 6).split("");
+            
+            // Distribuir los dígitos en los inputs
+            for (let i = 0; i < digits.length; i++) {
+              const inputElement = document.getElementById(`otp-setup-input-${i}`);
+              if (inputElement) {
+                (inputElement as HTMLInputElement).value = digits[i];
+              }
+            }
+            
+            // Enfocar el siguiente input vacío o el último si todos están llenos
+            if (digits.length < 6) {
+              const nextInput = document.getElementById(`otp-setup-input-${digits.length}`);
+              if (nextInput) nextInput.focus();
+            } else {
+              const lastInput = document.getElementById(`otp-setup-input-5`);
+              if (lastInput) lastInput.focus();
+            }
+          });
+        }
+      };
+      
+      // Crear los 6 inputs
+      for (let i = 0; i < 6; i++) {
+        const input = document.createElement("input");
+        input.id = `otp-setup-input-${i}`;
+        input.type = "text";
+        input.maxLength = 1;
+        input.className = "w-10 h-12 text-center border border-gray-300 rounded-md text-lg font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-black";
+        input.inputMode = "numeric";
+        input.pattern = "[0-9]";
+        
+        // Agregar event listeners
+        input.addEventListener("input", handleInputChange(i));
+        input.addEventListener("keydown", handleKeyDown(i));
+        
+        inputContainer.appendChild(input);
+      }
+      
+      // Armar el contenedor completo
+      setupContainer.appendChild(titleElement);
+      setupContainer.appendChild(instructionsElement);
+      setupContainer.appendChild(qrImage);
+      setupContainer.appendChild(secretContainer);
+      setupContainer.appendChild(otpInputsTitle);
+      setupContainer.appendChild(inputContainer);
+      
+      // Mostrar el modal con todo el contenido
+      await showCustomWarningAlert(
+        "Configurar 2FA",
+        setupContainer,
+        [
+          { 
+            text: "Verificar y Activar", 
+            color: "#28a745", 
+            callback: () => {
+              // Recopilar el código OTP
+              let code = "";
+              for (let i = 0; i < 6; i++) {
+                const inputElement = document.getElementById(`otp-setup-input-${i}`) as HTMLInputElement;
+                code += inputElement.value || "";
+              }
+              activateOtpSetup(userId, code, userData);
+            } 
+          },
+          { 
+            text: "Cancelar", 
+            color: "#6c757d",
+            callback: () => {
+              // Mensaje informativo de que el 2FA será obligatorio
+              showCustomSuccessAlert(
+                "Configuración pendiente",
+                "Has iniciado sesión correctamente, pero deberás configurar la autenticación de dos factores en tu próximo inicio de sesión."
+              );
+              // Procesar el inicio de sesión sin 2FA por esta vez
+              processLoginSuccess({ user: userData });
+            }
+          }
+        ]
+      );
+
+      // Enfocar el primer input automáticamente
+      setTimeout(() => {
+        const firstInput = document.getElementById("otp-setup-input-0");
+        if (firstInput) firstInput.focus();
+      }, 300);
+
+    } catch (error: any) {
+      showErrorAlert("Error", error.message || "Ocurrió un problema al mostrar la configuración de 2FA.");
+    }
+  };
+
+  const activateOtpSetup = async (userId: number, otpCode: string, _userData: any) => {
+    if (!otpCode || otpCode.length !== 6 || !/^\d+$/.test(otpCode)) {
+      showErrorAlert("Código inválido", "Por favor, ingresa un código de 6 dígitos.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/auth/activate-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, otpCode }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Código incorrecto");
+
+      // Mostrar mensaje de éxito
+      showCustomSuccessAlert(
+        "Configuración exitosa",
+        "Has activado la autenticación de dos factores correctamente. A partir de ahora, necesitarás tu aplicación de autenticación para iniciar sesión."
+      );
+
+      // Iniciar sesión
+      processLoginSuccess(data);
+
+    } catch (error: any) {
+      showErrorAlert("Error en verificación", error.message || "Código incorrecto.");
+    }
   };
 
   const showOtpVerification = async (userId: number) => {
