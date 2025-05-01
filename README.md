@@ -15,6 +15,7 @@ DataDash/
 │   │   │   ├── loginController.js
 │   │   │   ├── registerController.js
 │   │   │   ├── productsController.js
+│   │   │   ├── kpiController.js    → Controlador para cálculo de KPIs
 │   │   │   ├── rolesController.js
 │   │   │   └── usuariosController.js 
 │   │   ├── middleware/   → Manejo de errores u otros middlewares
@@ -23,6 +24,7 @@ DataDash/
 │   │   │   ├── loginRoute.js
 │   │   │   ├── registerRoute.js
 │   │   │   ├── productsRoute.js
+│   │   │   ├── kpiRoute.js        → Rutas para acceso a KPIs
 │   │   │   ├── rolesRoute.js
 │   │   │   └── usuariosRoute.js 
 │   │   ├── app.js        → Configuración global de la app Express
@@ -46,7 +48,7 @@ DataDash/
 │   │   │   ├── Users.tsx           
 │   │   │   ├── Roles.tsx            
 │   │   │   ├── Login.tsx          
-│   │   │   └── Home.tsx
+│   │   │   └── Home.tsx            → Dashboard con visualizaciones KPI
 │   │   ├── App.tsx       → Configuración de rutas
 │   │   ├── main.tsx      → Punto de entrada de la app React
 │   │   └── vite-env.d.ts
@@ -135,6 +137,49 @@ La función `handleSubmit` distingue entre inserción y actualización basándos
 - Productos con diferentes estados se muestran con indicadores visuales (verde/rojo)
 - Los botones de acción cambian según el estado actual
 - Filtro dropdown para mostrar todos los productos, solo activos o solo inactivos
+
+---
+
+# 📊 Módulo de KPIs y Dashboard
+
+## 🔍 Descripción
+Este módulo proporciona visualizaciones y análisis de indicadores clave de rendimiento (KPIs) para los productos almacenados en todas las bases de datos. Permite ver métricas consolidadas o filtrar por base de datos específica.
+
+## 📋 Características principales
+- **Visualización multi-base**: Capacidad para cambiar entre diferentes bases de datos
+- **Métricas clave**: Monitoreo de inventario, precios, costos y márgenes
+- **Gráficos interactivos**: Distribución de productos, estado de actividad y análisis por producto
+- **Filtrado dinámico**: Selector para cambiar entre vistas consolidadas o por base específica
+
+## 🛠️ Funcionalidades implementadas
+
+### Backend (kpiController.js)
+1. **Cálculo de KPIs consolidados**:
+   - Recopilación de datos desde todas las bases configuradas
+   - Cálculo de indicadores como:
+     - Total de productos y existencias
+     - Valor de inventario (costo) y venta (precio)
+     - Utilidad potencial y márgenes
+     - Distribución por base de datos
+     - Estado de productos (activos/inactivos)
+
+2. **Filtrado por base específica**:
+   - Endpoint que acepta parámetro de filtro por base
+   - Cálculo de métricas específicas para la base seleccionada
+
+### Frontend (Home.tsx)
+1. **Panel de tarjetas de indicadores**:
+   - Visualización clara de métricas numéricas principales
+   - Iconos descriptivos y formato profesional
+
+2. **Gráficos interactivos**:
+   - Gráfico circular de distribución por base de datos
+   - Gráfico circular de estado de productos (activos/inactivos)
+   - Gráficos de barras con detalle de precios, costos y márgenes por producto
+
+3. **Selector de base de datos**:
+   - Opción para ver datos consolidados o filtrar por base específica
+   - Actualización dinámica de todos los gráficos al cambiar la selección
 
 ---
 
@@ -252,4 +297,4 @@ El módulo de Usuarios y Autenticación se integra con:
 ---
 
 ## ✅ Conclusión
-DataDash implementa una aplicación completa y segura para la gestión de productos en múltiples bases de datos, con un sistema robusto de usuarios y roles. La seguridad es prioritaria con características como encriptación de datos sensibles, hash de contraseñas y autenticación de dos factores obligatoria. El sistema ofrece una interfaz intuitiva y proporciona retroalimentación clara al usuario sobre el resultado de todas las operaciones.
+DataDash implementa una aplicación completa y segura para la gestión de productos en múltiples bases de datos, con un sistema robusto de usuarios y roles. La seguridad es prioritaria con características como encriptación de datos sensibles, hash de contraseñas y autenticación de dos factores obligatoria. El sistema ofrece una interfaz intuitiva y proporciona retroalimentación clara al usuario sobre el resultado de todas las operaciones. El nuevo módulo de KPIs proporciona capacidades de análisis avanzadas para la toma de decisiones basada en datos.

@@ -83,7 +83,7 @@ export default function Sidebar() {
       {/* Header del Sidebar */}
       <div className="flex items-center justify-between p-4 border-b border-white-600/30">
         <span className={`${isOpen ? "block" : "hidden"} text-xl font-semibold`}>
-          Mi Aplicación
+          DataDash
         </span>
         <button
           onClick={() => setIsOpen(!isOpen)}

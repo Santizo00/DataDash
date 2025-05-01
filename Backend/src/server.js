@@ -8,6 +8,7 @@ import loginRoutes from "./routes/loginRoute.js";
 import productsRoute from './routes/productsRoute.js';
 import rolesRoute from './routes/rolesRoute.js';
 import usersRoute from './routes/usuariosRoute.js';
+import kpiRouter from './routes/kpiRoute.js';
 
 // Importar las funciones de test de conexión
 import { testMySQLConnection } from "./config/ConfigMySQL.js";
@@ -51,6 +52,7 @@ app.use("/auth", loginRoutes); // Agregar la ruta de autenticación
 app.use('/products', productsRoute); // Agregar la ruta de productos
 app.use('/roles', rolesRoute); // Agregar la ruta de roles
 app.use('/users', usersRoute); // Agregar la ruta de usuarios
+app.use('/kpis', kpiRouter); // Agregar la ruta de KPIs
 
 // Configuración del puerto y arranque del servidor
 const PORT = process.env.PORT || 5000;
