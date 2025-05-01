@@ -1,6 +1,6 @@
 import React from "react";
+import { showWarningAlert } from "../components/AlertService";
 import type { BaseDatos, FormDataType } from "../pages/Products";
-
 
 interface ModalProductProps {
   abierto: boolean;
@@ -11,6 +11,7 @@ interface ModalProductProps {
   basesDatos: BaseDatos[];
   productoEditando: any; // puedes tiparlo como Producto si lo exportas
   calcularPorcentajeMargen: (costo: number, precio: number) => number;
+  baseOriginal: number | null;
 }
 
 export const ModalProduct: React.FC<ModalProductProps> = ({
@@ -21,13 +22,15 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
   setFormData,
   basesDatos,
   productoEditando,
-  calcularPorcentajeMargen
+  calcularPorcentajeMargen,
+  baseOriginal
 }) => {
   if (!abierto) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-
+  
+    // Convertir explícitamente a los tipos correctos
     const newFormData = {
       ...formData,
       [name]:
@@ -37,16 +40,44 @@ export const ModalProduct: React.FC<ModalProductProps> = ({
           ? parseInt(value, 10)
           : value,
     };
-
+  
+    // Recalcular margen si cambian Costo o Precio
     if (name === "Costo" || name === "Precio") {
       newFormData.Margen = calcularPorcentajeMargen(
         name === "Costo" ? parseFloat(value) || 0 : formData.Costo,
         name === "Precio" ? parseFloat(value) || 0 : formData.Precio
       );
     }
+  
+    // ⚠️ Mostrar advertencia si cambia la base de datos en modo edición
+    if (
+      name === "Id_Base" &&
+      productoEditando &&
+      baseOriginal !== null &&
+      parseInt(value) !== baseOriginal
+    ) {
+      const nuevaBase = basesDatos.find(b => b.Id_Base === parseInt(value))?.BaseDatos || "Desconocida";
+      const originalBase = basesDatos.find(b => b.Id_Base === baseOriginal)?.BaseDatos || "Desconocida";
+      const codigo = formData.CodigoProducto;
+  
+      // Mensaje diferente según si se elige "Todas las Bases" o una base específica
+      const mensaje = parseInt(value) === 1
+        ? `⚠️ Se detectó un cambio de base de datos para el producto <strong>${codigo}</strong>.<br><br>
+          - El producto <strong>${codigo}</strong> se <strong>actualizará</strong> en todas las bases donde exista.<br>
+          - Si el producto <strong>${codigo}</strong> NO existe en alguna base, se <strong>creará</strong>`
+        : `⚠️ Se detectó un cambio de base de datos para el producto <strong>${codigo}</strong>.<br><br>
+          - Si el producto <strong>${codigo}</strong> NO existe en <strong>${nuevaBase}</strong>, se <strong>creará</strong>.<br>
+          - Si el producto <strong>${codigo}</strong> YA existe en <strong>${nuevaBase}</strong>, se <strong>actualizará</strong>.<br>
+          - El producto <strong>${codigo}</strong> será <strong>eliminado</strong> de <strong>${originalBase}</strong>.`;
 
+      showWarningAlert(
+        "Advertencia: Cambio de Base de Datos",
+        mensaje
+      );
+    }
+  
     setFormData(newFormData);
-  };
+  };  
 
   const porcentajeMargen = calcularPorcentajeMargen(formData.Costo, formData.Precio);
 

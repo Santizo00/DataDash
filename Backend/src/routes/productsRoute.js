@@ -2,7 +2,8 @@ import express from 'express';
 import { 
     obtenerProductos,
     obtenerBasesDatos,
-    insertarProducto
+    insertarProducto,
+    actualizarProducto,
 } from '../controllers/productsController.js';
 
 const router = express.Router();
@@ -11,5 +12,7 @@ const router = express.Router();
 router.get('/basesdatos', obtenerBasesDatos); 
 router.get('/', obtenerProductos); 
 router.post('/insert', insertarProducto); 
+router.put('/update', actualizarProducto);
+
 
 export default router;

@@ -1,5 +1,5 @@
 # DataDash
-DataDash is a secure web application for visualizing and analyzing key performance indicators (KPIs). It features encrypted login, two-factor authentication, and supports connections to Oracle, SQL Server, and Google Cloud SQL PostgreSQL. The app provides an intuitive interface for data entry and detailed KPI metrics visualization.
+DataDash es una aplicación web segura para visualizar y analizar indicadores clave de rendimiento (KPIs). Cuenta con inicio de sesión encriptado, autenticación de dos factores y soporte conexiones a Oracle, SQL Server, PostgreSQL y MySQL. La aplicación proporciona una interfaz intuitiva para la entrada de datos y la visualización detallada de métricas KPI.
 
 📦 Estructura General del Proyecto: DataDash
 DataDash/
@@ -53,58 +53,43 @@ DataDash/
 └── package.json          → Si se usa monorepo o scripts conjuntos
 
 ⚙️ Configuración de Bases de Datos
-Dentro de Backend/src/config/ tienes archivos dedicados para conectarte a cuatro motores distintos:
+Dentro de Backend/src/config/tienes archivos dedicados para conectarte a cuatro motores distintos:
 
-ConfigMySQL.js → Crea una conexión a MySQL usando mysql2/promise.
+- ConfigMySQL.js → Crea una conexión a MySQL usando mysql2/promise.
+- ConfigSQLS.js → Conecta a SQL Server usando mssql.
+- ConfigPostgres.js → Conexión con PostgreSQL vía pg.
+- ConfigOracle.js → Usa oracledb para conectar con Oracle.
 
-ConfigSQLS.js → Conecta a SQL Server usando mssql.
-
-ConfigPostgres.js → Conexión con PostgreSQL vía pg.
-
-ConfigOracle.js → Usa oracledb para conectar con Oracle.
-
-Cada archivo exporta una instancia de conexión que luego se puede usar para hacer query() o execute() dependiendo del motor.
+Cada archivo exporta una instalación de conexión que luego se puede usar para hacer query() o ejecutar() dependiendo del motor.
 
 🧠 Funcionamiento del Módulo de Productos
-🎛️ Componente: Products.tsx
-El frontend carga los productos haciendo una sola petición a /products/, que los obtiene desde todas las bases configuradas.
+🎛️ Componente: Productos.tsx
+El frontend carga los productos haciendo una sola película a /products/, que los obtiene desde todas las bases configuradas.
 
-Se usa un filtro (select) para cambiar entre bases o mostrar “Todas las Bases”.
-
-Se integra una tabla (Table.tsx) con paginación y ordenamiento.
-
-Se abre un modal (ModalProduct.tsx) para agregar/editar productos.
-
-El formulario incluye un selector de base de datos (Id_Base) que determina hacia qué base o bases se insertará el nuevo producto.
+- Se usa un filtro (select) para cambiar entre bases o mostrar "Todas las Bases".
+- Se integra una tabla (Table.tsx) con paginación y ordenamiento.
+- Se abre un modal (ModalProduct.tsx) para agregar/editar productos.
+- El formulario incluye un selector de base de datos (Id_Base) que determina hacia qué base o bases se inserta el nuevo producto.
 
 ⚙️ Backend: productsController.js
 En la función de inserción (pendiente de implementar), se evalúa el Id_Base recibido.
 
 Se usa un switch-case:
 
-2 → Inserta en MySQL.
-
-3 → Inserta en SQL Server.
-
-4 → Inserta en PostgreSQL.
-
-5 → Inserta en Oracle.
-
 1 → Inserta en todas las bases a la vez (con manejo de errores independientes).
+2 → Inserta en MySQL.
+3 → Inserta en SQL Server.
+4 → Inserta en PostgreSQL.
+5 → Inserta en Oracle.
 
 🛠️ Tecnologías Usadas
 Backend:
 Node.js + Express
-
 Conectores SQL:
-
-mysql2
-
-mssql
-
-pg
-
-oracledb
+- mysql2
+- mssql
+- pg
+- oracledb
 
 dotenv para manejo de entorno
 
@@ -123,5 +108,84 @@ React Hooks (useState, useEffect)
 
 Comunicación con backend vía fetch
 
-🔍 ¿Qué hace este proyecto?
-DataDash es un sistema de gestión de productos que permite mostrar, buscar y (próximamente) insertar productos en múltiples bases de datos desde una sola interfaz unificada. Soporta integración con cuatro motores SQL distintos y facilita el análisis de inventarios centralizados.
+🔍  ¿Qué hace este proyecto?
+DataDash es un sistema de gestión de productos que permiten mostrar, buscar, insertar y actualizar productos en múltiplos bases de datos desde una sola interfaz unificada. Soporta integración con cuatro motores SQL distintos y facilita el análisis de inventarios centralizados.
+
+
+# 🧠 Módulo de Productos Multi-DB
+
+## 🔍 Descripción Extendida
+Este módulo permite la inserción y actualización de productos en una o múltiplos bases de datos desde una interfaz React. En realidad soporta MySQL, SQL Server, PostgreSQL y Oracle. Desde el frontend se selecciona la base deseada (o todas), y el backend ejecuta la lógica necesaria para operar sobre cada una de ellas de forma desacoplada, reportando errores específicos si ocurren.
+
+---
+
+## ➕ Inserción de Productos
+
+### 🔄 Flujo de Inserción
+1. El usuario abre el modal de productos (`ModalProduct.tsx`) y llena los campos necesarios.
+2. Selecciona una base desde el campo `Id_Base`. Las opciones son específicas (MySQL, SQL Server, etc.) o "Todas las Bases" (`Id_Base = 1`).
+3. Se realiza un `POST` a `/products/insert`, enviando los datos del formulario.
+4. El backend evalúa el `Id_Base` y ejecuta inserciones:
+   - Si `Id_Base = 1`: se intenta insertar en las 4 bases con manejo individual de errores.
+   - Si `Id_Base = X`: se inserta solamente en la base correspondiente (según `switch`).
+5. El frontend muestra un resumen:
+   - Bases donde fue exitoso ✅
+   - Bases donde falló ❌ con su mensaje
+
+### 🟢 Resultado UI
+Los productos insertados se agregan visualmente a la tabla (`Table.tsx`), mostrando la base de datos de origen. Si se insertó en varias, se agregan tantas filas como bases involucradas.
+
+---
+
+## ✏️ Actualización de Productos
+
+### ⚙️ Lógica General del Update
+La función `handleSubmit` distingue entre inserción y actualización basándose en si `productoEditando` es `null`. Para la actualización se manejan 3 casos:
+
+### 🧩 Caso 1: Cambio solo de datos (misma base)
+- Se detecta que `Id_Base` no ha cambiado.
+- Se actualiza el producto directamente en esa base.
+- Se actualiza la fila en el estado (`productos[]`) con los nuevos valores.
+- No se realiza ninguna operación de eliminación.
+
+### 🔀 Caso 2: Cambio de base
+- Si el usuario edita el producto y cambia la base:
+  - Se elimina el producto de la base original.
+  - Se verifica si el producto (mismo `CodigoProducto`) ya existe en la nueva base:
+    - Si existe: se actualiza.
+    - Si no existe: se inserta uno nuevo.
+- En el frontend:
+  - Se elimina el producto visualmente del `productos[]` por `CodigoProducto + base original`
+  - Se agrega uno nuevo con base actualizada
+
+### 🌐 Caso 3: "Todas las Bases"
+- Se replica el comportamiento del caso 2 pero aplicado a **todas** las bases.
+- Se actualiza en cada base si el producto existe.
+- Se inserta si no existe.
+- No se elimina el producto de la base original.
+
+En el frontend:
+- Se actualizan todos los productos existentes con el mismo código.
+- Se agregan nuevos productos en las bases donde no existe previamente.
+
+
+Se muestra advertencia al usuario indicando que el producto se actualiza/insertará en todas las bases sin eliminación.
+
+### Mejores Implementadas
+- Corrección de tipos de datos para evitar errores en las operaciones SQL.
+- Manejo explícito de conversación de tipos en frontend y backend.
+- Mensajes de publicidad específicos para cada caso de actualización.
+- Manejo visual correcto de los 3 casos de actualización con actualización dinámica de la tabla.
+- Prevención de pérdida de datos en el caso "Todas las Bases".
+
+### 📦 Resultado UI
+- Se muestra un `SweetAlert` con resumen de bases actualizadas y errores.
+- La tabla se actualiza dinámicamente sin necesidad de recargar.
+
+---
+
+## ✅ Conclusión
+La funcionalidad de inserción y actualización multi-DB está implementada con soporte completo para los 3 casos comunes. El sistema es robusto visualmente y funcionalmente, mostrando errores detallados y resultados por base de datos involucrados.
+
+Este módulo convierte a DataDash en una plataforma ideal para entornos empresariales con múltiplos almacenes o servidores SQL distribuidos.
+

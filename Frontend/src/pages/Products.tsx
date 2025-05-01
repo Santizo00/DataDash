@@ -70,6 +70,7 @@ const Products: React.FC = () => {
     Id_Base: 0
   });
   const [filtroBaseDatos, setFiltroBaseDatos] = useState<number | "">("");
+  const [baseOriginal, setBaseOriginal] = useState<number | null>(null);
 
   useEffect(() => {
     cargarProductos();
@@ -157,57 +158,186 @@ const Products: React.FC = () => {
     return ((precio - costo) / costo) * 100;
   };
 
+  // CORREGIDO: Manejo visual adecuado de los 3 casos en la actualización
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    showLoading("Guardando producto...");
-  
+    showLoading(productoEditando ? "Actualizando producto..." : "Guardando producto...");
+
+    const isEditando = productoEditando !== null;
+
+    // Validar y convertir explícitamente a los tipos correctos
+    const validatedFormData = {
+      ...formData,
+      CodigoProducto: String(formData.CodigoProducto || ''),
+      Descripcion: String(formData.Descripcion || ''),
+      Existencia: Number(formData.Existencia) || 0,
+      Costo: Number(formData.Costo) || 0,
+      Precio: Number(formData.Precio) || 0,
+      Margen: Number(formData.Margen) || 0,
+      Id_Base: Number(formData.Id_Base) || 1
+    };
+
+    // Validación básica
+    if (!validatedFormData.CodigoProducto || !validatedFormData.Descripcion) {
+      hideLoading();
+      showErrorAlert("Error de validación", "El código y la descripción del producto son obligatorios");
+      return;
+    }
+
+    const endpoint = isEditando ? `${API_URL}/products/update` : `${API_URL}/products/insert`;
+    const payload = isEditando
+      ? { ...validatedFormData, Id_Producto: productoEditando.Id_Producto, productoOriginal: { Id_Base: baseOriginal } }
+      : validatedFormData;
+
     try {
-      const response = await fetch(`${API_URL}/products/insert`, {
-        method: "POST",
+      const response = await fetch(endpoint, {
+        method: isEditando ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       hideLoading();
-  
+
       if (data.exito) {
         setModalAbierto(false);
-      
+
         const basesInsertadas = (data.basesExito || []).map((b: string) => `✔️ ${b}`).join("<br>");
         const basesFallidas = (data.basesError || []).map((e: string) => `❌ ${e}`).join("<br>");
-      
-        let mensaje = `Producto insertado correctamente en:<br>${basesInsertadas}`;
+
+        let mensaje = isEditando
+          ? `Producto actualizado correctamente en:<br>${basesInsertadas}`
+          : `Producto insertado correctamente en:<br>${basesInsertadas}`;
+
         if (basesFallidas) {
-          mensaje += `<br><br><strong>Errores al insertar:</strong><br>${basesFallidas}`;
+          mensaje += `<br><br><strong>Errores:</strong><br>${basesFallidas}`;
         }
-      
+
         showCustomSuccessAlert("Éxito", mensaje);
-      
-        const nuevasBases = formData.Id_Base === 1 ? (data.basesExito || []) : [
-          basesDatos.find(b => b.Id_Base === formData.Id_Base)?.BaseDatos || "Desconocido"
-        ];
-        
-        const nuevosProductos = nuevasBases.map((nombreBase: string) => ({
-          ...formData,
-          Margen: calcularPorcentajeMargen(formData.Costo, formData.Precio),
-          Id_Producto: Math.floor(Math.random() * 1000000),
-          UltimaActualizacion: new Date().toISOString().slice(0, 19).replace("T", " "),
-          Activo: 1,
-          BaseDatos: nombreBase
-        }));
-        
-        setProductos(prev => [...prev, ...nuevosProductos]);
-        setProductosCompletos(prev => [...prev, ...nuevosProductos]);
-        
+
+        if (isEditando) {
+          // Preparamos la actualización visual basada en los casos
+          
+          // CASO 1: Actualización simple sin cambio de base
+          if (validatedFormData.Id_Base === baseOriginal && baseOriginal !== 1) {
+            // Actualizamos el producto en la misma base
+            const productosFinal = productos.map(p => {
+              if (p.CodigoProducto === productoEditando.CodigoProducto && p.Id_Base === baseOriginal) {
+                return {
+                  ...p,
+                  ...validatedFormData,
+                  Margen: calcularPorcentajeMargen(validatedFormData.Costo, validatedFormData.Precio),
+                  UltimaActualizacion: new Date().toISOString().slice(0, 19).replace("T", " ")
+                };
+              }
+              return p;
+            });
+            
+            setProductos(productosFinal);
+            setProductosCompletos(productosFinal);
+          }
+          
+          // CASO 2: Cambio a una base específica (no a "Todas las Bases")
+          else if (validatedFormData.Id_Base !== 1 && baseOriginal !== 1) {
+            // Filtramos el producto de la base original
+            let productosFinal = productos.filter(p => 
+              !(p.CodigoProducto === productoEditando.CodigoProducto && p.Id_Base === baseOriginal)
+            );
+            
+            // Añadimos el producto en la nueva base
+            const nuevaBase = basesDatos.find(b => b.Id_Base === validatedFormData.Id_Base);
+            if (nuevaBase) {
+              const nuevoProducto = {
+                ...validatedFormData,
+                Id_Producto: Math.floor(Math.random() * 1000000),
+                Margen: calcularPorcentajeMargen(validatedFormData.Costo, validatedFormData.Precio),
+                UltimaActualizacion: new Date().toISOString().slice(0, 19).replace("T", " "),
+                Activo: 1,
+                BaseDatos: nuevaBase.BaseDatos
+              };
+              
+              productosFinal = [...productosFinal, nuevoProducto];
+            }
+            
+            setProductos(productosFinal);
+            setProductosCompletos(productosFinal);
+          }
+          
+          // CASO 3: Actualización a "Todas las Bases"
+          else if (validatedFormData.Id_Base === 1) {
+            // Primero actualizamos los productos existentes con el mismo código en todas las bases
+            let productosFinal = productos.map(p => {
+              if (p.CodigoProducto === productoEditando.CodigoProducto) {
+                return {
+                  ...p,
+                  Descripcion: validatedFormData.Descripcion,
+                  Existencia: validatedFormData.Existencia,
+                  Costo: validatedFormData.Costo,
+                  Precio: validatedFormData.Precio,
+                  Margen: calcularPorcentajeMargen(validatedFormData.Costo, validatedFormData.Precio),
+                  UltimaActualizacion: new Date().toISOString().slice(0, 19).replace("T", " ")
+                };
+              }
+              return p;
+            });
+            
+            // Después verificamos las bases donde no existe el producto y lo agregamos
+            const basesConProducto = new Set(
+              productosFinal
+                .filter(p => p.CodigoProducto === productoEditando.CodigoProducto)
+                .map(p => p.Id_Base)
+            );
+            
+            // Creamos nuevos productos para las bases donde no existen
+            const nuevosProductos = [];
+            for (const base of basesDatos) {
+              // Ignoramos "Todas las Bases" (Id_Base = 1)
+              if (base.Id_Base !== 1 && !basesConProducto.has(base.Id_Base)) {
+                nuevosProductos.push({
+                  ...validatedFormData,
+                  Id_Producto: Math.floor(Math.random() * 1000000),
+                  Margen: calcularPorcentajeMargen(validatedFormData.Costo, validatedFormData.Precio),
+                  UltimaActualizacion: new Date().toISOString().slice(0, 19).replace("T", " "),
+                  Activo: 1,
+                  Id_Base: base.Id_Base,
+                  BaseDatos: base.BaseDatos
+                });
+              }
+            }
+            
+            // Unimos los productos actualizados con los nuevos
+            productosFinal = [...productosFinal, ...nuevosProductos];
+            
+            setProductos(productosFinal);
+            setProductosCompletos(productosFinal);
+          }
+        } else {
+          // 🆕 Inserción (sin cambios)
+          const nuevasBases = validatedFormData.Id_Base === 1 ? (data.basesExito || []) : [
+            basesDatos.find(b => b.Id_Base === validatedFormData.Id_Base)?.BaseDatos || "Desconocido"
+          ];
+
+          const nuevosProductos = nuevasBases.map((nombreBase: string) => ({
+            ...validatedFormData,
+            Margen: calcularPorcentajeMargen(validatedFormData.Costo, validatedFormData.Precio),
+            Id_Producto: Math.floor(Math.random() * 1000000),
+            UltimaActualizacion: new Date().toISOString().slice(0, 19).replace("T", " "),
+            Activo: 1,
+            BaseDatos: nombreBase
+          }));
+
+          setProductos(prev => [...prev, ...nuevosProductos]);
+          setProductosCompletos(prev => [...prev, ...nuevosProductos]);
+        }
       } else {
         showErrorAlert("Error", data.mensaje);
       }
     } catch (error) {
       hideLoading();
-      console.error("Error guardando producto:", error);
+      console.error("Error en envío de datos:", error);
       showErrorAlert("Error", "No se pudo guardar el producto.");
     }
   };
+
 
   const handleEliminar = async (_id: number) => {
     showWarningAlert("Funcionalidad no implementada", "La eliminación de productos se implementará en una fase posterior");
@@ -215,7 +345,16 @@ const Products: React.FC = () => {
 
   const abrirEditarModal = (producto: Producto) => {
     setProductoEditando(producto);
-    setFormData({ ...producto });
+    setFormData({ 
+      CodigoProducto: producto.CodigoProducto,
+      Descripcion: producto.Descripcion,
+      Existencia: Number(producto.Existencia),
+      Costo: Number(producto.Costo),
+      Precio: Number(producto.Precio),
+      Margen: Number(producto.Margen),
+      Id_Base: Number(producto.Id_Base)
+    });
+    setBaseOriginal(producto.Id_Base);
     setModalAbierto(true);
   };
 
@@ -304,6 +443,7 @@ const Products: React.FC = () => {
         basesDatos={basesDatos}
         productoEditando={productoEditando}
         calcularPorcentajeMargen={calcularPorcentajeMargen}
+        baseOriginal={baseOriginal}
       />
     </div>
   );
