@@ -419,7 +419,7 @@ const Usuarios: React.FC = () => {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 border border-black rounded-lg">
+    <div className="container mx-auto px-4 py-8 border rounded-lg">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Usuarios</h1>
       
       <div className="flex flex-wrap gap-4 justify-between items-center mb-6">

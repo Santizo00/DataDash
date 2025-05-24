@@ -2,6 +2,7 @@
 DataDash es una aplicación web segura para visualizar y analizar indicadores clave de rendimiento (KPIs). Cuenta con inicio de sesión encriptado, autenticación de dos factores y soporte conexiones a Oracle, SQL Server, PostgreSQL y MySQL. La aplicación proporciona una interfaz intuitiva para la entrada de datos y la visualización detallada de métricas KPI.
 
 📦 Estructura General del Proyecto: DataDash
+bash```
 DataDash/
 │
 ├── Backend/              → Backend Node.js con múltiples configuraciones de base de datos
@@ -57,6 +58,7 @@ DataDash/
 │
 ├── main.js               → Punto de entrada general del proyecto (opcional)
 └── package.json          → Si se usa monorepo o scripts conjuntos
+```
 
 ⚙️ Configuración de Bases de Datos
 Dentro de Backend/src/config/tienes archivos dedicados para conectarte a cuatro motores distintos:

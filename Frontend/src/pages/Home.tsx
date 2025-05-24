@@ -66,21 +66,20 @@ const Home: React.FC = () => {
   const cargarKPIs = async () => {
     showLoading("Calculando KPIs...");
     try {
-      const url = baseSeleccionada 
-        ? `${API_URL}/kpis?baseId=${baseSeleccionada}` 
+      const url = baseSeleccionada && baseSeleccionada !== "1"
+        ? `${API_URL}/kpis?baseId=${baseSeleccionada}`
         : `${API_URL}/kpis`;
+
         
       const response = await fetch(url);
       const data = await response.json();
       
       if (data.exito) {
-        if (baseSeleccionada) {
-          // Si hay base seleccionada, obtener los datos específicos
-          const baseKey = baseSeleccionada === "1" ? "todas" :
-                         baseSeleccionada === "2" ? "mysql" :
-                         baseSeleccionada === "3" ? "sqlserver" :
-                         baseSeleccionada === "4" ? "postgres" : "oracle";
-                         
+        if (baseSeleccionada && baseSeleccionada !== "1") {
+          const baseKey = baseSeleccionada === "2" ? "mysql" :
+                          baseSeleccionada === "3" ? "sqlserver" :
+                          baseSeleccionada === "4" ? "postgres" : "oracle";
+
           const baseData = data.resultadosPorBase[baseKey];
           if (baseData && baseData.exito) {
             setKpis({
@@ -94,7 +93,7 @@ const Home: React.FC = () => {
             });
           }
         } else {
-          // Datos consolidados
+          // Mostrar KPIs consolidados
           setKpis(data.datos);
         }
       } else {

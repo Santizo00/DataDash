@@ -478,13 +478,15 @@ const LoginPage: React.FC = () => {
                 <span>Ingresar</span>
               </button>
 
-              {/* Botón de Google */}
+              {/* Botón de Google 
+
               <button
                 type="button"
                 className="bg-white text-white py-3 w-full sm:w-auto sm:px-5 rounded-lg flex items-center justify-center border border-black"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-5 w-5" />
               </button>
+              */}
             </div>
 
             {/* Enlaces de registro y recuperación */}
